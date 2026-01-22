@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(del:*)",
-      "Bash(git init:*)"
+      "Bash(git init:*)",
+      "Bash(git branch:*)",
+      "Bash(git remote add:*)",
+      "Bash(ls:*)",
+      "Bash(python:*)"
     ]
   }
 }

@@ -3,12 +3,13 @@ import datetime
 import urllib.parse
 from email.utils import parsedate_to_datetime
 from config import (
-    GOOGLE_API_KEY, SEARCH_ENGINE_ID, 
+    GOOGLE_API_KEY, SEARCH_ENGINE_ID,
     NAVER_CLIENT_ID, NAVER_CLIENT_SECRET,
     BLACKLIST_DOMAINS, EXCLUDED_KEYWORDS,
-    NAVER_SEARCH_KEYWORDS, MARKET_KEYWORDS_QUERY, 
+    NAVER_SEARCH_KEYWORDS, MARKET_KEYWORDS_QUERY,
     GOOGLE_GLOBAL_QUERIES, COMMUNITY_SITES
 )
+from smart_filter import SmartFilter
 
 class NewsCollector:
     def __init__(self, debug_mode=False):
@@ -25,6 +26,9 @@ class NewsCollector:
 
         # Debug Mode
         self.debug_mode = debug_mode
+
+        # Smart Filter
+        self.smart_filter = SmartFilter(debug_mode=debug_mode)
 
     def validate_article(self, article):
         """

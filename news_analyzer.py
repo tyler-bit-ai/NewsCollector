@@ -1,5 +1,6 @@
 from openai import OpenAI
 from config import OPENAI_API_KEY, OPENAI_MODEL_BASIC, OPENAI_MODEL_ADVANCED, OPENAI_BASE_URL
+from smart_filter import SmartFilter
 import time
 import random
 import json
@@ -44,6 +45,21 @@ class NewsAnalyzer:
 
         if not domestic_items and not global_items:
             return {"error": "수집된 데이터가 없습니다."}
+
+        # --- Smart Filter 적용 (토큰 최적화) ---
+        print("   [Analyzer] Applying Smart Filter for token optimization...")
+        smart_filter = SmartFilter(debug_mode=False)
+
+        # 점수 기반 필터링 (임계값 30)
+        domestic_filtered = smart_filter.filter_articles_for_ai(domestic_items, threshold=30)
+        global_filtered = smart_filter.filter_articles_for_ai(global_items, threshold=30)
+
+        print(f"   [Smart Filter] Domestic: {len(domestic_items)} → {len(domestic_filtered)}")
+        print(f"   [Smart Filter] Global: {len(global_items)} → {len(global_filtered)}")
+
+        # 필터링된 데이터로 분석
+        domestic_items = domestic_filtered
+        global_items = global_filtered
 
         # --- STEP 1: Summarization (GPT-4o-mini) ---
         print("   [Analyzer] Step 1: Summarizing with Basic Model...")
