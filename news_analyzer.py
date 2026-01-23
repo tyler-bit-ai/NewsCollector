@@ -123,7 +123,7 @@ class NewsAnalyzer:
         전략적 인사이트는 아직 도출하지 마세요. 오직 팩트 기반의 요약과 분류만 수행합니다.
 
         [Data Sources]
-        === DOMESTIC DATA (최신 {len(domestic_limited)}개) ===
+        === DOMESTIC DATA (최신 {len(all_domestic)}개) ===
         {domestic_text}
 
         === GLOBAL DATA (최신 {len(global_limited)}개) ===
