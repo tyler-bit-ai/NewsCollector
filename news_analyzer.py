@@ -1,6 +1,7 @@
 from openai import OpenAI
 from config import OPENAI_API_KEY, OPENAI_MODEL_BASIC, OPENAI_MODEL_ADVANCED, OPENAI_BASE_URL
 from smart_filter import SmartFilter
+from news_collector import CategoryClassifier
 import time
 import random
 import json
@@ -61,22 +62,46 @@ class NewsAnalyzer:
         domestic_items = domestic_filtered
         global_items = global_filtered
 
-        # --- STEP 1: Summarization (GPT-4o-mini) ---
-        print("   [Analyzer] Step 1: Summarizing with Basic Model...")
+        # --- 카테고리별 분류 (키워드 기반) ---
+        print("   [Analyzer] Classifying articles by category...")
+        classified = {
+            'market_culture': [],
+            'global_trend': [],
+            'competitors': [],
+            'esim_products': [],
+            'voc_roaming': [],
+            'voc_esim': [],
+            'other': []
+        }
 
-        # 토큰 최적화: 상위 30개만 처리 (각 섹션 5개 + VOC 10개 = 총 30개)
-        # 우선순위: 최신 날짜 우선 정렬 후 슬라이스
+        # Domestic 기사 분류
+        for article in domestic_items:
+            category = CategoryClassifier.classify_article(article)
+            classified[category].append(article)
+
+        # Global 기사는 모두 global_trend로
+        for article in global_items:
+            classified['global_trend'].append(article)
+
+        # 분류 결과 출력
+        for cat, items in classified.items():
+            if items:
+                print(f"   {cat}: {len(items)} articles")
+
+        # --- 각 카테고리별 최신 10개씩 선택 ---
         def sort_by_date(items):
-            # None 처리를 위한 키 함수: None이면 가장 오래된 값 처리
             return sorted(items, key=lambda x: (x.get('published') is None, x.get('published') or ''), reverse=True)
 
-        domestic_sorted = sort_by_date(domestic_items)
-        global_sorted = sort_by_date(global_items)
+        max_per_category = 10
+        domestic_by_category = {}
+        for cat in ['market_culture', 'competitors', 'esim_products', 'voc_roaming', 'voc_esim']:
+            sorted_items = sort_by_date(classified[cat])
+            domestic_by_category[cat] = sorted_items[:max_per_category]
 
-        # 총 40개 중 최신 40개 사용 (여유 있게)
-        max_items = 40
-        domestic_limited = domestic_sorted[:max_items]
-        global_limited = global_sorted[:max_items]
+        global_limited = sort_by_date(classified['global_trend'])[:max_per_category]
+
+        # --- STEP 1: Summarization (GPT-4o-mini) ---
+        print("   [Analyzer] Step 1: Summarizing with Basic Model...")
 
         def format_items(items):
             text = ""
@@ -84,7 +109,12 @@ class NewsAnalyzer:
                 text += f"{idx}. [{item.get('source')}] {item.get('title')}\n"
             return text
 
-        domestic_text = format_items(domestic_limited)
+        # 카테고리별 기사를 모두 합쳐서 텍스트 생성
+        all_domestic = []
+        for cat_items in domestic_by_category.values():
+            all_domestic.extend(cat_items)
+
+        domestic_text = format_items(all_domestic)
         global_text = format_items(global_limited)
 
         prompt_basic = f"""

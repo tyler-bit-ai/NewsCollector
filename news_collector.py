@@ -12,6 +12,69 @@ from config import (
 )
 from smart_filter import SmartFilter
 
+
+class CategoryClassifier:
+    """키워드 기반 간단 카테고리 분류기"""
+
+    # 카테고리별 키워드 정의
+    CATEGORY_KEYWORDS = {
+        'market_culture': [
+            '입국자', '출국자', '출입국자', '입국자수', '출국자수',
+            'K-POP', '케이팝', '한류', '한국 여행', '일본 여행', '중국 여행',
+            '베트남 여행', '필리핀 여행', '해외 여행객', '여행객수', '관광객'
+        ],
+        'global_trend': [
+            # global 타입 기사는 나중에 처리
+        ],
+        'competitors': [
+            'KT 로밍', 'KT 데이터', 'KT 로밍 요금제', 'kt 로밍', 'kt 데이터',
+            'LGU+ 로밍', 'LG유플러스 로밍', 'lgu+ 로밍', 'lg유플러스',
+            'KT 통신', 'LGU+ 통신'
+        ],
+        'esim_products': [
+            '도시락 esim', '도시락이심', '도시락 프로모션', '도시락 할인',
+            '말톡 esim', '말톡이심', '말톡 프로모션', '말톡 할인',
+            '유심사', '이지에심', '핀다이렉트', 'eSIM 프로모션', 'esim 프로모션'
+        ],
+        'voc_roaming': [
+            '로밍 후기', '로밍 리뷰', '로밍 추천', '로밍 재구매',
+            '로밍 사용기', '로밍 사용법', '로밍 추천'
+        ],
+        'voc_esim': [
+            'eSIM 후기', 'esim 후기', 'eSIM 리뷰', 'esim 리뷰',
+            'eSIM 추천', 'esim 추천', 'eSIM 재구매', 'esim 재구매',
+            '도시락 후기', '말톡 후기', '유심사 후기', '이지에심 후기'
+        ]
+    }
+
+    @classmethod
+    def classify_article(cls, article: dict) -> str:
+        """
+        기사를 키워드 기반으로 카테고리 분류
+
+        Returns:
+            카테고리 키 (market_culture, global_trend, competitors, esim_products, voc_roaming, voc_esim, other)
+        """
+        title = article.get('title', '').lower()
+        snippet = article.get('snippet', '').lower()
+        combined = f"{title} {snippet}"
+
+        # Global 기사는 type으로 확인
+        if article.get('type') == 'global':
+            return 'global_trend'
+
+        # 각 카테고리 키워드 확인 (우선순위대로)
+        priority_order = ['competitors', 'voc_roaming', 'voc_esim', 'esim_products', 'market_culture']
+
+        for category in priority_order:
+            keywords = cls.CATEGORY_KEYWORDS[category]
+            for keyword in keywords:
+                if keyword.lower() in combined:
+                    return category
+
+        return 'other'  # 분류되지 않은 기사
+
+
 class NewsCollector:
     def __init__(self, debug_mode=False):
         # Google Keys
