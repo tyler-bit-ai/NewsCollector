@@ -316,7 +316,7 @@ class SmartFilter:
 
         return min(total_score, 100)  # 최대 100점 제한
 
-    def should_include_for_ai(self, article: Dict, threshold: float = 30) -> bool:
+    def should_include_for_ai(self, article: Dict, threshold: float = 30) -> tuple:
         """
         AI 분석 포함 여부 결정
 
@@ -325,19 +325,82 @@ class SmartFilter:
             threshold: 최소 관련성 점수 임계값
 
         Returns:
-            True if article should be included for AI analysis
+            (bool, dict) - (포함 여부, 필터링 사유 정보)
         """
-        score = self.calculate_relevance_score(article)
-
-        # 경쟁사 기사는 낮은 점수도 허용
         title = article.get('title', '')
-        is_competitor = any(kw in title.lower() for kw in ["kt", "lgu+", "lg유플러스"])
+        snippet = article.get('snippet', '')
+        link = article.get('link', '')
+        published = article.get('published')
 
+        # 1. 게임 관련 기사 필터링
+        if self.is_game_related(title, snippet):
+            return False, {
+                "filtered": True,
+                "reason": "게임 관련 기사",
+                "score": 0,
+                "details": "리그오브레전드, LoL, PUBG 등 게임 키워드 감지"
+            }
+
+        # 2. 점수 계산
+        keyword_score = self.calculate_keyword_density_score(title, snippet)
+        source_score = self.calculate_source_credibility(link)
+        freshness_score = self.calculate_freshness_score(published)
+        competitor_bonus = self.calculate_competitor_bonus(title, snippet)
+
+        total_score = (
+            keyword_score * 0.4 +
+            source_score * 0.3 +
+            freshness_score * 0.2 +
+            competitor_bonus * 0.1
+        )
+        total_score = min(total_score, 100)
+
+        # 3. 경쟁사 기사 확인
+        is_competitor = any(kw in title.lower() for kw in ["kt", "lgu+", "lg유플러스"])
         adjusted_threshold = 20 if is_competitor else threshold
 
-        return score >= adjusted_threshold
+        # 4. 필터링 여부 결정
+        if total_score >= adjusted_threshold:
+            return True, {
+                "filtered": False,
+                "reason": "통과",
+                "score": round(total_score, 2),
+                "details": self._get_pass_reason(keyword_score, source_score, freshness_score, competitor_bonus)
+            }
+        else:
+            return False, {
+                "filtered": True,
+                "reason": "관련성 점수 미달",
+                "score": round(total_score, 2),
+                "details": self._get_fail_reason(keyword_score, source_score, freshness_score, competitor_bonus, adjusted_threshold)
+            }
 
-    def filter_articles_for_ai(self, articles: list, threshold: float = 30) -> list:
+    def _get_pass_reason(self, keyword_score, source_score, freshness_score, competitor_bonus):
+        """통과 사유 생성"""
+        reasons = []
+        if keyword_score > 20:
+            reasons.append(f"핵심 키워드 포함 ({keyword_score:.1f}점)")
+        if source_score > 80:
+            reasons.append(f"신뢰도 높은 출처 ({source_score:.1f}점)")
+        if freshness_score > 60:
+            reasons.append(f"최신 기사 ({freshness_score:.1f}점)")
+        if competitor_bonus > 0:
+            reasons.append(f"경쟁사 관련 기사 (+{competitor_bonus:.1f}점)")
+        return ", ".join(reasons) if reasons else "종합 점수 합격"
+
+    def _get_fail_reason(self, keyword_score, source_score, freshness_score, competitor_bonus, threshold):
+        """필터링 사유 생성"""
+        reasons = []
+        if keyword_score < 15:
+            reasons.append(f"관련 키워드 부족 ({keyword_score:.1f}점)")
+        if source_score < 50:
+            reasons.append(f"신뢰도 낮은 출처 ({source_score:.1f}점)")
+        if freshness_score < 40:
+            reasons.append(f"오래된 기사 ({freshness_score:.1f}점)")
+        fail_msg = f"점수 미달 (합격선: {threshold}점)"
+        return f"{fail_msg} - " + ", ".join(reasons) if reasons else fail_msg
+
+    def filter_articles_for_ai(self, articles: list, threshold: float = 30) -> tuple:
         """
         기사 목록에서 AI 분석에 포함할 기사만 필터링
 
@@ -346,18 +409,28 @@ class SmartFilter:
             threshold: 최소 관련성 점수 임계값
 
         Returns:
-            필터링된 기사 리스트
+            (필터링된 기사 리스트, 필터링 정보 리스트)
         """
         filtered = []
+        filter_info = []
 
         for article in articles:
-            if self.should_include_for_ai(article, threshold):
+            should_include, info = self.should_include_for_ai(article, threshold)
+
+            # 필터링 정보에 기사 제목/링크 추가
+            info['title'] = article.get('title', '')[:60]
+            info['link'] = article.get('link', '')
+            info['source'] = article.get('source', '')
+            filter_info.append(info)
+
+            if should_include:
                 filtered.append(article)
 
         if self.debug_mode:
-            print(f"\n[FILTER SUMMARY] Original: {len(articles)} → Filtered: {len(filtered)}")
+            passed = sum(1 for f in filter_info if not f['filtered'])
+            print(f"\n[FILTER SUMMARY] Original: {len(articles)} → Passed: {passed} → Filtered: {len(articles) - passed}")
 
-        return filtered
+        return filtered, filter_info
 
 
 # ========================================

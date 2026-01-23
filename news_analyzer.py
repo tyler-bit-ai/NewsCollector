@@ -50,9 +50,9 @@ class NewsAnalyzer:
         print("   [Analyzer] Applying Smart Filter for token optimization...")
         smart_filter = SmartFilter(debug_mode=False)
 
-        # 점수 기반 필터링 (임계값 30)
-        domestic_filtered = smart_filter.filter_articles_for_ai(domestic_items, threshold=30)
-        global_filtered = smart_filter.filter_articles_for_ai(global_items, threshold=30)
+        # 점수 기반 필터링 (임계값 30) - 필터링 정보도 함께 반환
+        domestic_filtered, domestic_filter_info = smart_filter.filter_articles_for_ai(domestic_items, threshold=30)
+        global_filtered, global_filter_info = smart_filter.filter_articles_for_ai(global_items, threshold=30)
 
         print(f"   [Smart Filter] Domestic: {len(domestic_items)} → {len(domestic_filtered)}")
         print(f"   [Smart Filter] Global: {len(global_items)} → {len(global_filtered)}")
@@ -99,19 +99,26 @@ class NewsAnalyzer:
         === GLOBAL DATA (최신 {len(global_limited)}개) ===
         {global_text}
 
-        [Classification Rules]
-        1. **Market & Culture**: 여행 수요, 공항, K-Culture, 한국 여행 트렌드.
-        2. **Global Trends**: 글로벌 로밍/eSIM/통신 기술(Starlink, 6G 등).
-        3. **Competitors**: SKT의 경쟁사(KT, LGU+)의 로밍/요금제 활동만 포함. **(중요: SK텔레콤(SKT) 단독 뉴스는 절대 포함하지 마세요. KT/LGU+ 내용이 주가 되는 기사만 분류)**.
-        4. **Substitutes**: eSIM, 도시락, 말톡, 유심사 등 대체재 업체의 프로모션/기사/출시 소식. **(중요: 고객 후기 형식은 제외. "ㅠㅠ", "ㅋㅋ", "후기", "리뷰", "재구매", "추천" 등 개인 사용 경험글은 VOC로 분류)**.
-        5. **VOC**: 고객 반응, 리뷰, 불만, 사용 후기. **(eSIM/도시락/말톡 등의 고객 후기도 여기에 포함. "후기", "리뷰", "ㅠㅠ", "ㅋㅋ", "재구매", "추천" 등 개인 경험 표현이 있는 경우 VOC 분류)**.
+        [Classification Rules - 6 Categories]
+        0. **Market & Culture (Macro)**: 한국 방문객(입국자), K-Culture, K-POP, 한류, 출국자 수 통계/추이, 여행 시장 동향.
+
+        1. **Global Roaming Trend**: 해외 기사 중 eSIM 및 로밍 산업에 관한 영어 기사. 글로벌 로밍/eSIM/통신 기술 트렌드(Starlink, 6G 등).
+
+        2. **SKT & Competitors (KT/LGU+)**: SKT 바로로밍, KT 로밍, LGU+ 로밍 관련 기사. **(중요: SK텔레콤(SKT) 단독 뉴스는 절대 포함하지 마세요. KT/LGU+ 내용이 주가 되는 기사만 분류)**.
+
+        3. **eSIM**: eSIM 대표 업체(도시락, 말톡, 유심사, 이지에심, 핀다이렉트 등) 관련 기사와 eSIM 사업자들의 프로모션/광고 관련 기사.
+
+        4. **로밍 Voice**: 로밍 사업에 대한 긍정/부정 후기 (커뮤니티, 블로그 소스). "ㅠㅠ", "ㅋㅋ", "후기", "리뷰", "재구매", "추천" 등 개인 사용 경험글.
+
+        5. **eSIM VoC**: eSIM 사업에 대한 긍정/부정 후기 (커뮤니티, 블로그 소스). eSIM/도시락/말톡 등의 고객 후기, "후기", "리뷰", "ㅠㅠ", "ㅋㅋ", "재구매", "추천" 등 개인 경험 표현.
 
         [Output Limits]
-- Market & Culture: 최대 5개
-- Global Trends: 최대 5개
-- Competitors: 최대 5개
-- Substitutes: 최대 5개 (프로모션/기사/출시 소식만)
-- VOC: 최대 10개 (고객 후기/리뷰/불만 포함)
+- Market & Culture (Macro): 최대 5개
+- Global Roaming Trend: 최대 5개
+- SKT & Competitors (KT/LGU+): 최대 5개
+- eSIM: 최대 5개 (프로모션/기사/출시 소식만)
+- 로밍 Voice: 최대 5개 (고객 후기/리뷰)
+- eSIM VoC: 최대 5개 (고객 후기/리뷰)
 
         [Noise Filtering]
         - 게임, 금융, 광고, 이벤트 관련 내용은 제외.
@@ -121,8 +128,9 @@ class NewsAnalyzer:
             "section_market_culture": [ {{ "title": "...", "summary": "• ...", "link": "...", "source": "..." }} ],
             "section_global_trend": [ {{ "title": "...", "summary": "• ...", "link": "...", "source": "..." }} ],
             "section_competitors": [ {{ "title": "...", "summary": "• ...", "link": "...", "source": "..." }} ],
-            "section_substitutes": [ {{ "title": "...", "summary": "• ...", "link": "...", "source": "..." }} ],
-            "section_voc": [ {{ "title": "...", "summary": "• ...", "link": "...", "source": "..." }} ]
+            "section_esim_products": [ {{ "title": "...", "summary": "• ...", "link": "...", "source": "..." }} ],
+            "section_voc_roaming": [ {{ "title": "...", "summary": "• ...", "link": "...", "source": "..." }} ],
+            "section_voc_esim": [ {{ "title": "...", "summary": "• ...", "link": "...", "source": "..." }} ]
         }}
         """
 
@@ -177,5 +185,11 @@ class NewsAnalyzer:
         # Merge Results
         final_result = summ_data.copy()
         final_result.update(insight_data)
-        
+
+        # 필터링 정보 추가 (디버그용)
+        final_result['filter_info'] = {
+            'domestic': domestic_filter_info,
+            'global': global_filter_info
+        }
+
         return final_result

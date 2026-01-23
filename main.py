@@ -151,8 +151,9 @@ def generate_html_email(data, date_str):
     html_market = render_section_items(data.get("section_market_culture", []))
     html_global = render_section_items(data.get("section_global_trend", []))
     html_competitors = render_section_items(data.get("section_competitors", []))
-    html_substitutes = render_section_items(data.get("section_substitutes", []))
-    html_voc = render_section_items(data.get("section_voc", []))
+    html_esim_products = render_section_items(data.get("section_esim_products", []))
+    html_voc_roaming = render_section_items(data.get("section_voc_roaming", []))
+    html_voc_esim = render_section_items(data.get("section_voc_esim", []))
 
     # HTML Construction
     # Using 'Morning Brew' aesthetic: Clean white, Serif headings (or clean Sans), heavy black headers, blue links etc.
@@ -202,21 +203,24 @@ def generate_html_email(data, date_str):
 
             <!-- Content Sections -->
             <div class="content-box">
-                
-                <div class="section-title">0. 여행 시장 및 K-Culture</div>
+
+                <div class="section-title">0. Market & Culture (Macro)</div>
                 {html_market}
-                
-                <div class="section-title">1. 글로벌 산업 트렌드 (Global Tech)</div>
+
+                <div class="section-title">1. Global Roaming Trend</div>
                 {html_global}
 
-                <div class="section-title">2. 국내 경쟁사 (KT/LGU+)</div>
+                <div class="section-title">2. SKT & Competitors (KT/LGU+)</div>
                 {html_competitors}
 
-                <div class="section-title">3. 대체재 동향 (eSIM)</div>
-                {html_substitutes}
+                <div class="section-title">3. eSIM</div>
+                {html_esim_products}
 
-                <div class="section-title">4. 고객 반응 (VOC Analysis)</div>
-                {html_voc}
+                <div class="section-title">4. 로밍 Voice</div>
+                {html_voc_roaming}
+
+                <div class="section-title">5. eSIM VoC</div>
+                {html_voc_esim}
 
             </div>
 
@@ -309,7 +313,7 @@ def main():
         analyzer = NewsAnalyzer()
 
         with st.status("🔍 Processing Intelligence Cycle...", expanded=True) as status:
-            
+
             # Step 1: Hybrid Collection
             st.write("📡 Step 1: Collecting data from Naver & Google...")
             raw_data = collector.collect_hybrid()
@@ -318,32 +322,77 @@ def main():
             g_count = len(raw_data.get('global', []))
             st.write(f"   ✅ Collected: Domestic {d_count}, Global {g_count}")
 
-            # 디버그: 수집된 원본 데이터 출력
-            with st.expander("🔍 [DEBUG] Collected Raw Data (Click to View)", expanded=False):
-                st.markdown("### Domestic Items")
-                for i, item in enumerate(raw_data.get('domestic', [])[:20], 1):  # 상위 20개만
-                    st.markdown(f"**{i}. [{item.get('source')}] {item.get('title')}**")
-                    st.caption(f"Link: {item.get('link')}")
-                    st.caption(f"Published: {item.get('published', 'N/A')}")
-                    st.markdown("---")
-
-                st.markdown("### Global Items")
-                for i, item in enumerate(raw_data.get('global', [])[:20], 1):  # 상위 20개만
-                    st.markdown(f"**{i}. [{item.get('source')}] {item.get('title')}**")
-                    st.caption(f"Link: {item.get('link')}")
-                    st.caption(f"Published: {item.get('published', 'N/A')}")
-                    st.markdown("---")
-
             # Step 2: AI Analysis
             st.write("🧠 Step 2: GPT-5 Semantic Analysis & Noise Filtering...")
             final_report = analyzer.analyze_and_summarize(raw_data)
-            
+
             if "error" in final_report:
                 st.error(final_report["error"])
                 status.update(label="Failed", state="error")
             else:
                 st.session_state.report_data = final_report
                 status.update(label="Intelligence Cycle Completed!", state="complete", expanded=False)
+
+        # 디버그: 수집된 원본 데이터 출력 (status 블록 밖으로 이동)
+        with st.expander("🔍 [DEBUG] Collected Raw Data (Click to View)", expanded=False):
+            st.markdown("### Domestic Items")
+            for i, item in enumerate(raw_data.get('domestic', [])[:20], 1):  # 상위 20개만
+                st.markdown(f"**{i}. [{item.get('source')}] {item.get('title')}**")
+                st.caption(f"Link: {item.get('link')}")
+                st.caption(f"Published: {item.get('published', 'N/A')}")
+                st.markdown("---")
+
+            st.markdown("### Global Items")
+            for i, item in enumerate(raw_data.get('global', [])[:20], 1):  # 상위 20개만
+                st.markdown(f"**{i}. [{item.get('source')}] {item.get('title')}**")
+                st.caption(f"Link: {item.get('link')}")
+                st.caption(f"Published: {item.get('published', 'N/A')}")
+                st.markdown("---")
+
+        # 디버그: 필터링 사유 상세 표시
+        if debug_mode and st.session_state.report_data and 'filter_info' in st.session_state.report_data:
+            with st.expander("🔍 [DEBUG] Filtering Details (Why articles were filtered/passed)", expanded=False):
+                filter_info = st.session_state.report_data['filter_info']
+
+                # Domestic 필터링 결과
+                st.markdown("### 📰 Domestic Articles Filtering")
+                domestic_passed = [f for f in filter_info['domestic'] if not f['filtered']]
+                domestic_filtered = [f for f in filter_info['domestic'] if f['filtered']]
+
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown(f"#### ✅ Passed ({len(domestic_passed)})")
+                    for f in domestic_passed:
+                        st.markdown(f"**{f['title']}...**")
+                        st.caption(f"Score: {f['score']} | {f['details']}")
+                        st.markdown("---")
+
+                with col2:
+                    st.markdown(f"#### ❌ Filtered ({len(domestic_filtered)})")
+                    for f in domestic_filtered:
+                        st.markdown(f"**{f['title']}...**")
+                        st.caption(f"Reason: {f['reason']} | {f['details']}")
+                        st.markdown("---")
+
+                # Global 필터링 결과
+                st.markdown("### 🌍 Global Articles Filtering")
+                global_passed = [f for f in filter_info['global'] if not f['filtered']]
+                global_filtered = [f for f in filter_info['global'] if f['filtered']]
+
+                col3, col4 = st.columns(2)
+                with col3:
+                    st.markdown(f"#### ✅ Passed ({len(global_passed)})")
+                    for f in global_passed:
+                        st.markdown(f"**{f['title']}...**")
+                        st.caption(f"Score: {f['score']} | {f['details']}")
+                        st.markdown("---")
+
+                with col4:
+                    st.markdown(f"#### ❌ Filtered ({len(global_filtered)})")
+                    for f in global_filtered:
+                        st.markdown(f"**{f['title']}...**")
+                        st.caption(f"Reason: {f['reason']} | {f['details']}")
+                        st.markdown("---")
 
     # --- Result Dashboard ---
     if st.session_state.report_data:
@@ -361,23 +410,26 @@ def main():
         
         # 2. Main Columns
         c1, c2 = st.columns(2)
-        
+
         with c1:
             st.subheader("0. Market & Culture (Macro)")
             render_feed_items(data.get('section_market_culture', []), "naver")
-            
-            st.subheader("2. Competitors (KT/LGU+)")
+
+            st.subheader("2. SKT & Competitors (KT/LGU+)")
             render_feed_items(data.get('section_competitors', []), "naver")
 
-            st.subheader("4. VOC (Customer Voice)")
-            render_feed_items(data.get('section_voc', []), "comm")
-            
+            st.subheader("4. 로밍 Voice")
+            render_feed_items(data.get('section_voc_roaming', []), "comm")
+
         with c2:
-            st.subheader("1. Global Trends (Tech)")
+            st.subheader("1. Global Roaming Trend")
             render_feed_items(data.get('section_global_trend', []), "google")
-            
-            st.subheader("3. Substitutes (eSIM)")
-            render_feed_items(data.get('section_substitutes', []), "naver")
+
+            st.subheader("3. eSIM")
+            render_feed_items(data.get('section_esim_products', []), "naver")
+
+            st.subheader("5. eSIM VoC")
+            render_feed_items(data.get('section_voc_esim', []), "comm")
             
         # 3. Strategy
         st.markdown("---")
