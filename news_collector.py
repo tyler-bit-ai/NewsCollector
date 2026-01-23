@@ -94,6 +94,36 @@ class NewsCollector:
         # Smart Filter
         self.smart_filter = SmartFilter(debug_mode=debug_mode)
 
+    def clean_naver_link(self, link: str, category: str) -> str:
+        """
+        네이버 링크에서 리디렉트/랜딩 페이지 제거
+        실제 기사/블로그 글 원본 링크로 변환
+        """
+        if not link:
+            return link
+
+        # 이미 정상적인 링크 형태이면 그대로 반환
+        # 정상 형태: news.naver.com/..., blog.naver.com/아이디/번호
+        if '/blog.naver.com/' in link and '/Promotion' not in link:
+            return link
+        if 'news.naver.com/' in link and 'view.nhn' in link:
+            return link
+
+        # 블로그 프로모션/랜딩 페이지 처리
+        if '/blog.naver.com/' in link and ('/Promotion' in link or 'blogId=' in link):
+            # blogId와 logNo 추출 시도
+            parsed = urllib.parse.urlparse(link)
+            params = urllib.parse.parse_qs(parsed.query)
+
+            blog_id = params.get('blogId', [''])[0]
+            log_no = params.get('logNo', [''])[0]
+
+            if blog_id and log_no:
+                return f"https://blog.naver.com/{blog_id}/{log_no}"
+
+        # 그 외 경우는 원본 링크 반환
+        return link
+
     def validate_article(self, article):
         """
         [Strict Validation]
@@ -248,10 +278,14 @@ class NewsCollector:
                          else:
                              continue # Strict time check failed for news
                     
+                    # Link Cleaning: Remove Naver redirect/landing pages
+                    raw_link = item.get('link', '')
+                    clean_link = self.clean_naver_link(raw_link, category)
+
                     # Standardization
                     article = {
                         'title': item.get('title'),
-                        'link': item.get('link'),
+                        'link': clean_link,
                         'snippet': item.get('description'),
                         'source': f"Naver {category.capitalize()}",
                         'published': raw_date,
