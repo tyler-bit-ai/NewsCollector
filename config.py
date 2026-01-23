@@ -28,6 +28,25 @@ NAVER_SEARCH_KEYWORDS = [
     "eSIM 장점", "eSIM 속도", "eSIM 편리"
 ]
 
+# 1.1 VOC-Specific Keywords (Community/Blog focus)
+# For 로밍 Voice & eSIM VoC categories
+NAVER_VOC_KEYWORDS = [
+    "로밍 후기", "로밍 리뷰", "로밍 추천", "로밍 재구매",
+    "도시락 후기", "도시락 리뷰", "도시락 추천",
+    "말톡 후기", "말톡 리뷰", "말톡 추천",
+    "유심사 후기", "유심사 리뷰",
+    "이지에심 후기", "이지에심 리뷰",
+    "eSIM 후기", "eSIM 리뷰", "eSIM 추천", "eSIM 재구매"
+]
+
+# 1.2 Competitor-Specific Keywords
+# For SKT & Competitors category
+NAVER_COMPETITOR_KEYWORDS = [
+    "KT 로밍", "KT 데이터 로밍", "KT 로밍 요금제",
+    "LGU+ 로밍", "LG유플러스 로밍", "LGU+ 데이터 로밍",
+    "SKT 바로 로밍"  # For comparison
+]
+
 # 2. Travel/Culture (Naver & Google Hybrid)
 # Keywords: (Reference only, used in logic): (로밍 OR eSIM) ("일본 여행" OR "중국 여행" OR "베트남 여행" OR "필리핀 여행" OR "한국 여행" OR "케이팝" OR "K-POP" OR "한류")
 # Market: 출국자수, 입국자수, 출입국자수, 출국자 동향, 입국자 동향, 해외 여행객수

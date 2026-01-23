@@ -6,7 +6,8 @@ from config import (
     GOOGLE_API_KEY, SEARCH_ENGINE_ID,
     NAVER_CLIENT_ID, NAVER_CLIENT_SECRET,
     BLACKLIST_DOMAINS, EXCLUDED_KEYWORDS,
-    NAVER_SEARCH_KEYWORDS, MARKET_KEYWORDS_QUERY,
+    NAVER_SEARCH_KEYWORDS, NAVER_VOC_KEYWORDS, NAVER_COMPETITOR_KEYWORDS,
+    MARKET_KEYWORDS_QUERY,
     GOOGLE_GLOBAL_QUERIES, COMMUNITY_SITES
 )
 from smart_filter import SmartFilter
@@ -253,21 +254,29 @@ class NewsCollector:
         Master method to collect from all sources.
         """
         print("=== Starting Hybrid Data Collection ===")
-        
+
         # 1. Domestic & Market (Naver priority)
         # Combine predefined keywords into a single efficient query loop or specific calls
         domestic_articles = []
-        
+
         # A. Core Keywords -> News, Blog, Cafe
         for keyword in NAVER_SEARCH_KEYWORDS:
             domestic_articles.extend(self.collect_from_naver(keyword, categories=['news', 'blog', 'cafearticle']))
-            
+
         # B. Market/Culture Keywords -> News, Blog
         domestic_articles.extend(self.collect_from_naver(MARKET_KEYWORDS_QUERY, categories=['news', 'blog']))
-        
+
+        # C. VOC Keywords -> Blog, Cafe (Community focus for customer reviews)
+        for keyword in NAVER_VOC_KEYWORDS:
+            domestic_articles.extend(self.collect_from_naver(keyword, categories=['blog', 'cafearticle']))
+
+        # D. Competitor Keywords -> News
+        for keyword in NAVER_COMPETITOR_KEYWORDS:
+            domestic_articles.extend(self.collect_from_naver(keyword, categories=['news']))
+
         # 2. Global (Google)
         global_articles = self.collect_from_google(GOOGLE_GLOBAL_QUERIES, num=10)
-        
+
         return {
             'domestic': self.deduplicate(domestic_articles),
             'global': global_articles

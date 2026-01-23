@@ -415,7 +415,16 @@ class SmartFilter:
         filter_info = []
 
         for article in articles:
-            should_include, info = self.should_include_for_ai(article, threshold)
+            # 커뮤니티/블로그 출처는 점수 기준 완화 (VOC 수집을 위해)
+            link = article.get('link', '')
+            adjusted_threshold = threshold
+
+            for pattern in self.BLOG_PATTERNS + self.CAFE_PATTERNS + self.COMMUNITY_PATTERNS:
+                if pattern in link:
+                    adjusted_threshold = 20  # VOC 카테고리를 위해 점수 기준 완화
+                    break
+
+            should_include, info = self.should_include_for_ai(article, adjusted_threshold)
 
             # 필터링 정보에 기사 제목/링크 추가
             info['title'] = article.get('title', '')[:60]
