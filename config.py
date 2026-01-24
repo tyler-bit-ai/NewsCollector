@@ -20,12 +20,12 @@ OPENAI_MODEL_ADVANCED = "openai/gpt-5-2025-08-07"
 # --- Hybrid Search Strategy & Queries ---
 
 # 1. Domestic Channels (Naver News/Blog/Cafe)
-# Core Keywords: 로밍, eSIM, SKT 바로, 도시락 eSIM, 말톡, 유심사, 이지에심, 핀다이렉트
-# Tech/Quality: 스타링크, 로밍 속도, 로밍 불만, 로밍 품질, 로밍 불편, 5G SA 로밍, eSIM 장점, eSIM 속도, eSIM 편리
+# Core Keywords: 로밍, eSIM, SKT 바로, 도시락 eSIM, 말톡, 유심사, 이지이심, 핀다이렉트
+# Tech/Quality: 스타링크, 로밍 속도, 로밍 불만, 로밍 품질, 로밍 불편, 5G SA 로밍, eSIM 장점, eSIM 속도, eSIM 편리, eSIM 단점, eSIM 불만, 로밍 가격, eSIM 가격
 NAVER_SEARCH_KEYWORDS = [
-    "로밍", "eSIM", "SKT 바로", "도시락 eSIM", "말톡", "유심사", "이지에심", "핀다이렉트",
-    "로밍 속도", "로밍 불만", "로밍 품질", "로밍 불편",
-    "eSIM 장점", "eSIM 속도", "eSIM 편리"
+    "로밍", "eSIM", "SKT 바로", "도시락 eSIM", "말톡", "유심사", "이지이심", "핀다이렉트",
+    "로밍 속도", "로밍 불만", "로밍 품질", "로밍 불편", "로밍 가격",
+    "eSIM 장점", "eSIM 속도", "eSIM 편리", "eSIM 단점", "eSIM 불만", "eSIM 가격"
 ]
 
 # 1.1 VOC-Specific Keywords (Community/Blog focus)
@@ -35,7 +35,7 @@ NAVER_VOC_KEYWORDS = [
     "도시락 후기", "도시락 리뷰", "도시락 추천",
     "말톡 후기", "말톡 리뷰", "말톡 추천",
     "유심사 후기", "유심사 리뷰",
-    "이지에심 후기", "이지에심 리뷰",
+    "이지이심 후기", "이지이심 리뷰",
     "eSIM 후기", "eSIM 리뷰", "eSIM 추천", "eSIM 재구매"
 ]
 
@@ -44,18 +44,30 @@ NAVER_VOC_KEYWORDS = [
 NAVER_COMPETITOR_KEYWORDS = [
     "KT 로밍", "KT 데이터 로밍", "KT 로밍 요금제",
     "LGU+ 로밍", "LG유플러스 로밍", "LGU+ 데이터 로밍",
-    "SKT 바로 로밍"  # For comparison
+    "SKT 바로 로밍",  # For comparison
+    "SKT baro", "SKT 바로"
 ]
 
 # 2. Travel/Culture (Naver & Google Hybrid)
-# Keywords: (Reference only, used in logic): (로밍 OR eSIM) ("일본 여행" OR "중국 여행" OR "베트남 여행" OR "필리핀 여행" OR "한국 여행" OR "케이팝" OR "K-POP" OR "한류")
-# Market: 출국자수, 입국자수, 출입국자수, 출국자 동향, 입국자 동향, 해외 여행객수
-MARKET_KEYWORDS_QUERY = '(로밍 OR eSIM) ("일본 여행" OR "중국 여행" OR "베트남 여행" OR "필리핀 여행" OR "한국 여행" OR "케이팝" OR "K-POP" OR "한류" OR "출국자수" OR "입국자수" OR "출입국자수" OR "출국자 동향" OR "입국자 동향" OR "해외 여행객수")'
+# Keywords: ("일본 여행" OR "중국 여행" OR "베트남 여행" OR "필리핀 여행" OR "한국 여행" OR "케이팝" OR "K-POP" OR "한류" OR "출국자수" OR "입국자수" OR "출입국자수" OR "출국자 동향" OR "입국자 동향" OR "해외 여행객수")
+# Note: No (로밍 OR eSIM) filter - this category is independent of roaming/eSIM
+MARKET_KEYWORDS_QUERY = '("일본 여행" OR "중국 여행" OR "베트남 여행" OR "필리핀 여행" OR "한국 여행" OR "케이팝" OR "K-POP" OR "한류" OR "출국자수" OR "입국자수" OR "출입국자수" OR "출국자 동향" OR "입국자 동향" OR "해외 여행객수")'
 
 # 3. Global Channels (Google Only)
-# Keywords: ("Roaming industry" OR "eSIM market") ("trends" OR "analysis" OR "future")
+# Comprehensive keywords: roaming business, global eSIM industry, travel connectivity market
+# Strategic keywords (trends): travel eSIM trends 2026, roaming market outlook, MVNO roaming services
+# Technical keywords (insights): 5G SA roaming, satellite cellular convergence, SGP.32 eSIM, Starlink roaming
 GOOGLE_GLOBAL_QUERIES = [
-    '("Roaming industry" OR "eSIM market") ("trends" OR "analysis" OR "future")'
+    "roaming business",
+    "global eSIM industry",
+    "travel connectivity market",
+    "travel eSIM trends 2026",
+    "roaming market outlook",
+    "MVNO roaming services",
+    "5G SA roaming",
+    "satellite cellular convergence",
+    "SGP.32 eSIM",
+    "Starlink roaming"
 ]
 
 # Community Sites (for potential Google fallback or VOC classification)

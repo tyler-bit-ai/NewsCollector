@@ -269,6 +269,28 @@ class SmartFilter:
 
         return False
 
+    def calculate_market_culture_bonus(self, title: str, snippet: str) -> float:
+        """
+        시장/문화 카테고리 관련 키워드가 있으면 보너스 점수 부여
+        (로밍/eSIM이 없어도 통과할 수 있도록)
+        """
+        combined_text = f"{title} {snippet}".lower()
+
+        # 시장/문화 관련 키워드
+        market_culture_keywords = [
+            '입국자', '출국자', '출입국자', '입국자수', '출국자수',
+            'k-pop', '케이팝', '한류', '한국 여행', '일본 여행', '중국 여행',
+            '베트남 여행', '필리핀 여행', '해외 여행객', '여행객수', '관광객'
+        ]
+
+        keyword_count = sum(1 for kw in market_culture_keywords if kw.lower() in combined_text)
+
+        # 시장/문화 키워드가 있으면 최대 40점 보너스
+        if keyword_count > 0:
+            return min(keyword_count * 20, 40)  # 1개 키워드당 20점, 최대 40점
+
+        return 0
+
     def calculate_relevance_score(self, article: Dict) -> float:
         """
         종합 관련성 점수 계산 (0~100)
@@ -290,6 +312,9 @@ class SmartFilter:
         # 1. 키워드 밀도 점수
         keyword_score = self.calculate_keyword_density_score(title, snippet)
 
+        # 1.1 시장/문화 카테고리 보너스 (로밍/eSIM이 없어도 높은 점수)
+        market_culture_bonus = self.calculate_market_culture_bonus(title, snippet)
+
         # 2. 출처 신뢰도 점수
         source_score = self.calculate_source_credibility(link)
 
@@ -301,7 +326,7 @@ class SmartFilter:
 
         # 가중 평균 계산
         total_score = (
-            keyword_score * 0.4 +
+            (keyword_score + market_culture_bonus) * 0.4 +
             source_score * 0.3 +
             freshness_score * 0.2 +
             competitor_bonus * 0.1
@@ -310,7 +335,7 @@ class SmartFilter:
         if self.debug_mode:
             # 인코딩 문제 방지를 위해 안전한 출력
             safe_title = title[:40].encode('cp949', 'ignore').decode('cp949') if title else ''
-            print(f"[SCORE] {safe_title}... | Keyword: {keyword_score:.1f} | "
+            print(f"[SCORE] {safe_title}... | Keyword: {keyword_score:.1f} | Market: +{market_culture_bonus:.1f} | "
                   f"Source: {source_score:.1f} | Fresh: {freshness_score:.1f} | "
                   f"Bonus: {competitor_bonus:.1f} | Total: {total_score:.1f}")
 
