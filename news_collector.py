@@ -97,17 +97,25 @@ class NewsCollector:
     def clean_naver_link(self, link: str, category: str) -> str:
         """
         네이버 링크에서 리디렉트/랜딩 페이지 제거
-        실제 기사/블로그 글 원본 링크로 변환
+        실제 기사/블로그/카페 글 원본 링크로 변환
         """
         if not link:
             return link
 
         # 이미 정상적인 링크 형태이면 그대로 반환
-        # 정상 형태: news.naver.com/..., blog.naver.com/아이디/번호
+        # 정상 형태: news.naver.com/..., blog.naver.com/아이디/번호, cafe.naver.com/카페ID/글번호
         if '/blog.naver.com/' in link and '/Promotion' not in link:
-            return link
+            # blog.naver.com/아이디/번호 형태인지 확인
+            if '/blog.naver.com/' in link and len(link.split('/')) >= 5:
+                return link
         if 'news.naver.com/' in link and 'view.nhn' in link:
             return link
+        if '/cafe.naver.com/' in link and '/cafe.naver.com/' in link:
+            # cafe.naver.com/카페ID/글번호 형태 확인 (랜딩 페이지 제외)
+            # 랜딩 페이지 패턴: /ca-fe/, /MyCafeIntro/, /Entry/, /cafes/
+            landing_patterns = ['/ca-fe/', '/MyCafeIntro/', '/Entry/', '/cafes/']
+            if not any(pattern in link for pattern in landing_patterns):
+                return link
 
         # 블로그 프로모션/랜딩 페이지 처리
         if '/blog.naver.com/' in link and ('/Promotion' in link or 'blogId=' in link):
@@ -120,6 +128,59 @@ class NewsCollector:
 
             if blog_id and log_no:
                 return f"https://blog.naver.com/{blog_id}/{log_no}"
+
+        # 카페 랜딩 페이지 처리
+        if '/cafe.naver.com/' in link:
+            # 카페 아티클 URL에서 실제 글 ID 추출
+            # 랜딩 페이지 예: https://cafe.naver.com/ca-fe/cafes/xxx/articles/xxx
+            # 또는: https://cafe.naver.com/cafes/xxx/articles/xxx
+
+            # 방법1: URL 경로에서 article ID 추출 시도
+            parsed = urllib.parse.urlparse(link)
+            path_parts = parsed.path.split('/')
+
+            # 경로 패턴 분석
+            # cafe.naver.com/cafe_id/article_id
+            # 또는 랜딩: cafe.naver.com/ca-fe/cafes/cafe_id/articles/article_id
+
+            article_id = None
+            cafe_id = None
+
+            # articles/ 뒤에 있는 ID 찾기
+            if 'articles' in path_parts:
+                idx = path_parts.index('articles')
+                if idx + 1 < len(path_parts):
+                    article_id = path_parts[idx + 1]
+
+            # cafes/ 뒤에 있는 ID 찾기 (카페 ID)
+            if 'cafes' in path_parts:
+                idx = path_parts.index('cafes')
+                if idx + 1 < len(path_parts):
+                    cafe_id = path_parts[idx + 1]
+
+            # URL 쿼리 파라미터에서도 추출 시도
+            params = urllib.parse.parse_qs(parsed.query)
+            if not article_id:
+                article_id = params.get('articleId', [''])[0]
+            if not cafe_id:
+                cafe_id = params.get('cafeId', [''])[0]
+
+            # Direct 형식의 URL에서 카페 ID와 글 ID 추출
+            # cafe.naver.com/cafe_id/article_id 형식인 경우
+            if not (article_id and cafe_id) and len(path_parts) >= 4:
+                # 도메인 직후의 경로 분석
+                for i, part in enumerate(path_parts):
+                    if part and part not in ['', 'cafe.naver.com', 'nview', 'ca-fe', 'cafes', 'articles']:
+                        # 첫 번째 유효한 부분이 카페 ID
+                        if not cafe_id:
+                            cafe_id = part
+                        # 두 번째 유효한 부분이 글 ID
+                        elif not article_id:
+                            article_id = part
+                            break
+
+            if cafe_id and article_id:
+                return f"https://cafe.naver.com/{cafe_id}/{article_id}"
 
         # 그 외 경우는 원본 링크 반환
         return link
