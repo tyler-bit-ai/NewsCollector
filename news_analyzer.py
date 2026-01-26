@@ -51,9 +51,9 @@ class NewsAnalyzer:
         print("   [Analyzer] Applying Smart Filter for token optimization...")
         smart_filter = SmartFilter(debug_mode=False)
 
-        # 점수 기반 필터링 (임계값 15로 낮춤) - 필터링 정보도 함께 반환
-        domestic_filtered, domestic_filter_info = smart_filter.filter_articles_for_ai(domestic_items, threshold=15)
-        global_filtered, global_filter_info = smart_filter.filter_articles_for_ai(global_items, threshold=15)
+        # 점수 기반 필터링 (임계값 30) - 필터링 정보도 함께 반환
+        domestic_filtered, domestic_filter_info = smart_filter.filter_articles_for_ai(domestic_items, threshold=30)
+        global_filtered, global_filter_info = smart_filter.filter_articles_for_ai(global_items, threshold=30)
 
         print(f"   [Smart Filter] Domestic: {len(domestic_items)} → {len(domestic_filtered)}")
         print(f"   [Smart Filter] Global: {len(global_items)} → {len(global_filtered)}")
@@ -88,11 +88,11 @@ class NewsAnalyzer:
             if items:
                 print(f"   {cat}: {len(items)} articles")
 
-        # --- 각 카테고리별 최신 15개씩 선택 ---
+        # --- 각 카테고리별 최신 10개씩 선택 ---
         def sort_by_date(items):
             return sorted(items, key=lambda x: (x.get('published') is None, x.get('published') or ''), reverse=True)
 
-        max_per_category = 15  # 10 → 15로 증가
+        max_per_category = 10
         domestic_by_category = {}
         for cat in ['market_culture', 'competitors', 'esim_products', 'voc_roaming', 'voc_esim']:
             sorted_items = sort_by_date(classified[cat])
@@ -144,12 +144,12 @@ class NewsAnalyzer:
         5. **eSIM VoC**: eSIM 사업에 대한 긍정/부정 후기 (커뮤니티, 블로그 소스). eSIM/도시락/말톡 등의 고객 후기, "후기", "리뷰", "ㅠㅠ", "ㅋㅋ", "재구매", "추천" 등 개인 경험 표현.
 
         [Output Limits]
-- Market & Culture (Macro): 최대 10개
-- Global Roaming Trend: 최대 10개
-- SKT & Competitors (KT/LGU+): 최대 10개
-- eSIM: 최대 10개 (프로모션/기사/출시 소식만)
-- 로밍 Voice: 최대 10개 (고객 후기/리뷰)
-- eSIM VoC: 최대 10개 (고객 후기/리뷰)
+- Market & Culture (Macro): 최대 5개
+- Global Roaming Trend: 최대 5개
+- SKT & Competitors (KT/LGU+): 최대 5개
+- eSIM: 최대 5개 (프로모션/기사/출시 소식만)
+- 로밍 Voice: 최대 5개 (고객 후기/리뷰)
+- eSIM VoC: 최대 5개 (고객 후기/리뷰)
 
         [Noise Filtering]
         - 게임, 금융, 광고, 이벤트 관련 내용은 제외.
