@@ -65,7 +65,8 @@ class CategoryClassifier:
             return 'global_trend'
 
         # 각 카테고리 키워드 확인 (우선순위대로)
-        priority_order = ['competitors', 'voc_roaming', 'voc_esim', 'esim_products', 'market_culture']
+        # eSIM 제품/프로모션이 먼저 분류되도록 esim_products를 voc_esim보다 우선
+        priority_order = ['competitors', 'voc_roaming', 'esim_products', 'voc_esim', 'market_culture']
 
         for category in priority_order:
             keywords = cls.CATEGORY_KEYWORDS[category]
