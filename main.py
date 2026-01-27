@@ -216,7 +216,7 @@ def generate_html_email(data, date_str):
                 <div class="section-title">3. eSIM</div>
                 {html_esim_products}
 
-                <div class="section-title">4. 로밍 Voice</div>
+                <div class="section-title">4. 로밍 VoC</div>
                 {html_voc_roaming}
 
                 <div class="section-title">5. eSIM VoC</div>
@@ -418,7 +418,7 @@ def main():
             st.subheader("2. SKT & Competitors (KT/LGU+)")
             render_feed_items(data.get('section_competitors', []), "naver")
 
-            st.subheader("4. 로밍 Voice")
+            st.subheader("4. 로밍 VoC")
             render_feed_items(data.get('section_voc_roaming', []), "comm")
 
         with c2:

@@ -22,10 +22,21 @@ OPENAI_MODEL_ADVANCED = "openai/gpt-5-2025-08-07"
 # 1. Domestic Channels (Naver News/Blog/Cafe)
 # Note: Removed NAVER_SEARCH_KEYWORDS - keywords are now category-specific
 
-# 1.1 VOC-Specific Keywords (Community/Blog focus)
-# For 로밍 Voice & eSIM VoC categories
-NAVER_VOC_KEYWORDS = [
-    "로밍 후기", "로밍 리뷰", "로밍 추천", "로밍 재구매",
+# 1.1 eSIM Products (Companies) - For eSIM category (Naver News)
+# eSIM 사업자/프로모션 관련 키워드
+NAVER_ESIM_PRODUCTS_KEYWORDS = [
+    "유심사", "말톡", "핀다이렉트", "도시락 eSIM", "로밍 도깨비"
+]
+
+# 1.2 Roaming VOC Keywords - For 로밍 VoC category (Naver Blog, Cafe)
+# 로밍 관련 고객 후기/리뷰
+NAVER_ROAMING_VOC_KEYWORDS = [
+    "로밍 후기", "로밍 리뷰", "로밍 추천", "로밍 재구매"
+]
+
+# 1.3 eSIM VOC Keywords - For eSIM VoC category (Naver Blog, Cafe)
+# eSIM 관련 고객 후기/리뷰
+NAVER_ESIM_VOC_KEYWORDS = [
     "도시락 후기", "도시락 리뷰", "도시락 추천",
     "말톡 후기", "말톡 리뷰", "말톡 추천",
     "유심사 후기", "유심사 리뷰",
@@ -33,8 +44,8 @@ NAVER_VOC_KEYWORDS = [
     "eSIM 후기", "eSIM 리뷰", "eSIM 추천", "eSIM 재구매"
 ]
 
-# 1.2 Competitor-Specific Keywords
-# For SKT & Competitors category
+# 1.4 Competitor-Specific Keywords
+# For SKT & Competitors category (Naver News)
 NAVER_COMPETITOR_KEYWORDS = [
     "KT 로밍", "KT 데이터 로밍", "KT 로밍 요금제",
     "LGU+ 로밍", "LG유플러스 로밍", "LGU+ 데이터 로밍",

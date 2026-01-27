@@ -6,7 +6,8 @@ from config import (
     GOOGLE_API_KEY, SEARCH_ENGINE_ID,
     NAVER_CLIENT_ID, NAVER_CLIENT_SECRET,
     BLACKLIST_DOMAINS, EXCLUDED_KEYWORDS,
-    NAVER_VOC_KEYWORDS, NAVER_COMPETITOR_KEYWORDS,
+    NAVER_ESIM_PRODUCTS_KEYWORDS, NAVER_ROAMING_VOC_KEYWORDS, NAVER_ESIM_VOC_KEYWORDS,
+    NAVER_COMPETITOR_KEYWORDS,
     MARKET_KEYWORDS_QUERY,
     GOOGLE_GLOBAL_QUERIES, COMMUNITY_SITES
 )
@@ -588,28 +589,41 @@ class NewsCollector:
 
         domestic_articles = []
 
-        # 1. Market/Culture Keywords → News, Blog
-        # 시장/문화: 뉴스와 블로그에서 검색
-        print("\n[1] Market & Culture (News + Blog)")
+        # 1. Market/Culture (Macro) → News, Blog
+        # 로밍/eSIM 관계 없는 시장/문화 카테고리
+        print("\n[0] Market & Culture (News + Blog)")
         domestic_articles.extend(self.collect_from_news(MARKET_KEYWORDS_QUERY, display=50))
         domestic_articles.extend(self.collect_from_blog(MARKET_KEYWORDS_QUERY, display=50))
 
-        # 2. VOC Keywords → Blog, Cafe
-        # VOC 후기/리뷰: 블로그와 카페에서 검색
-        print("\n[2] VOC (Blog + Cafe)")
-        for keyword in NAVER_VOC_KEYWORDS:
-            domestic_articles.extend(self.collect_from_blog(keyword, display=30))
-            domestic_articles.extend(self.collect_from_cafe(keyword, display=30))
-
-        # 3. Competitor Keywords → News
+        # 2. SKT & Competitors (KT/LGU+) → News
         # 경쟁사: 뉴스에서 검색
-        print("\n[3] Competitors (News)")
+        print("\n[2] SKT & Competitors (News)")
         for keyword in NAVER_COMPETITOR_KEYWORDS:
             domestic_articles.extend(self.collect_from_news(keyword, display=30))
 
-        # 4. Global (Google)
+        # 3. eSIM → News
+        # eSIM 사업자/프로모션: 뉴스에서 검색
+        print("\n[3] eSIM Products (News)")
+        for keyword in NAVER_ESIM_PRODUCTS_KEYWORDS:
+            domestic_articles.extend(self.collect_from_news(keyword, display=30))
+
+        # 4. 로밍 VoC → Blog, Cafe
+        # 로밍 관련 고객 후기/리뷰: 블로그, 카페에서 검색
+        print("\n[4] 로밍 VoC (Blog + Cafe)")
+        for keyword in NAVER_ROAMING_VOC_KEYWORDS:
+            domestic_articles.extend(self.collect_from_blog(keyword, display=30))
+            domestic_articles.extend(self.collect_from_cafe(keyword, display=30))
+
+        # 5. eSIM VoC → Blog, Cafe
+        # eSIM 관련 고객 후기/리뷰: 블로그, 카페에서 검색
+        print("\n[5] eSIM VoC (Blog + Cafe)")
+        for keyword in NAVER_ESIM_VOC_KEYWORDS:
+            domestic_articles.extend(self.collect_from_blog(keyword, display=30))
+            domestic_articles.extend(self.collect_from_cafe(keyword, display=30))
+
+        # 6. Global Roaming Trend → Google
         # 글로벌 트렌드: 구글 검색
-        print("\n[4] Global Roaming Trend (Google)")
+        print("\n[1] Global Roaming Trend (Google)")
         global_articles = self.collect_from_google(GOOGLE_GLOBAL_QUERIES, num=10)
 
         return {
