@@ -47,23 +47,8 @@ class NewsAnalyzer:
         if not domestic_items and not global_items:
             return {"error": "수집된 데이터가 없습니다."}
 
-        # --- Smart Filter 적용 (토큰 최적화) ---
-        print("   [Analyzer] Applying Smart Filter for token optimization...")
-        smart_filter = SmartFilter(debug_mode=False)
-
-        # 점수 기반 필터링 (임계값 30) - 필터링 정보도 함께 반환
-        domestic_filtered, domestic_filter_info = smart_filter.filter_articles_for_ai(domestic_items, threshold=30)
-        global_filtered, global_filter_info = smart_filter.filter_articles_for_ai(global_items, threshold=30)
-
-        print(f"   [Smart Filter] Domestic: {len(domestic_items)} → {len(domestic_filtered)}")
-        print(f"   [Smart Filter] Global: {len(global_items)} → {len(global_filtered)}")
-
-        # 필터링된 데이터로 분석
-        domestic_items = domestic_filtered
-        global_items = global_filtered
-
-        # --- 카테고리별 분류 (키워드 기반) ---
-        print("   [Analyzer] Classifying articles by category...")
+        # --- 카테고리별 분류 (키워드 기반) - SmartFilter 적용 전에 분류 ---
+        print("   [Analyzer] Classifying articles by category first...")
         classified = {
             'market_culture': [],
             'global_trend': [],
@@ -87,6 +72,33 @@ class NewsAnalyzer:
         for cat, items in classified.items():
             if items:
                 print(f"   {cat}: {len(items)} articles")
+
+        # --- Smart Filter 적용 (VOC 카테고리에만 적용) ---
+        print("   [Analyzer] Applying Smart Filter for VOC categories only...")
+        smart_filter = SmartFilter(debug_mode=False)
+
+        # VOC 카테고리(4, 5번)에만 SmartFilter 적용
+        # 0, 1, 2, 3번 카테고리는 키워드 검색으로 충분하므로 필터링하지 않음
+        voc_roaming_filtered, voc_roaming_filter_info = smart_filter.filter_articles_for_ai(
+            classified['voc_roaming'], threshold=30
+        )
+        voc_esim_filtered, voc_esim_filter_info = smart_filter.filter_articles_for_ai(
+            classified['voc_esim'], threshold=30
+        )
+
+        print(f"   [Smart Filter] 로밍 VoC: {len(classified['voc_roaming'])} → {len(voc_roaming_filtered)}")
+        print(f"   [Smart Filter] eSIM VoC: {len(classified['voc_esim'])} → {len(voc_esim_filtered)}")
+
+        # 필터링된 VOC 카테고리 업데이트
+        classified['voc_roaming'] = voc_roaming_filtered
+        classified['voc_esim'] = voc_esim_filtered
+
+        # 필터링 정보 저장 (디버그용)
+        domestic_filter_info = {
+            'voc_roaming': voc_roaming_filter_info,
+            'voc_esim': voc_esim_filter_info
+        }
+        global_filter_info = []
 
         # --- 각 카테고리별 최신 10개씩 선택 ---
         def sort_by_date(items):
