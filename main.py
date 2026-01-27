@@ -354,45 +354,50 @@ def main():
             with st.expander("🔍 [DEBUG] Filtering Details (Why articles were filtered/passed)", expanded=False):
                 filter_info = st.session_state.report_data['filter_info']
 
-                # Domestic 필터링 결과
-                st.markdown("### 📰 Domestic Articles Filtering")
-                domestic_passed = [f for f in filter_info['domestic'] if not f['filtered']]
-                domestic_filtered = [f for f in filter_info['domestic'] if f['filtered']]
+                # Domestic VOC 필터링 결과 (0, 1, 2, 3번 카테고리는 필터링 없음)
+                st.markdown("### 📰 VOC Articles Filtering (SmartFilter Applied)")
 
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.markdown(f"#### ✅ Passed ({len(domestic_passed)})")
-                    for f in domestic_passed:
-                        st.markdown(f"**{f['title']}...**")
-                        st.caption(f"Score: {f['score']} | {f['details']}")
-                        st.markdown("---")
+                # 로밍 VoC 필터링 결과
+                if 'domestic' in filter_info and 'voc_roaming' in filter_info['domestic']:
+                    voc_roaming_passed = [f for f in filter_info['domestic']['voc_roaming'] if not f['filtered']]
+                    voc_roaming_filtered = [f for f in filter_info['domestic']['voc_roaming'] if f['filtered']]
 
-                with col2:
-                    st.markdown(f"#### ❌ Filtered ({len(domestic_filtered)})")
-                    for f in domestic_filtered:
-                        st.markdown(f"**{f['title']}...**")
-                        st.caption(f"Reason: {f['reason']} | {f['details']}")
-                        st.markdown("---")
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.markdown(f"#### ✅ 로밍 VoC Passed ({len(voc_roaming_passed)})")
+                        for f in voc_roaming_passed:
+                            st.markdown(f"**{f['title']}...**")
+                            st.caption(f"Score: {f['score']} | {f['details']}")
+                            st.markdown("---")
 
-                # Global 필터링 결과
-                st.markdown("### 🌍 Global Articles Filtering")
-                global_passed = [f for f in filter_info['global'] if not f['filtered']]
-                global_filtered = [f for f in filter_info['global'] if f['filtered']]
+                    with col2:
+                        st.markdown(f"#### ❌ 로밍 VoC Filtered ({len(voc_roaming_filtered)})")
+                        for f in voc_roaming_filtered:
+                            st.markdown(f"**{f['title']}...**")
+                            st.caption(f"Reason: {f['reason']} | {f['details']}")
+                            st.markdown("---")
 
-                col3, col4 = st.columns(2)
-                with col3:
-                    st.markdown(f"#### ✅ Passed ({len(global_passed)})")
-                    for f in global_passed:
-                        st.markdown(f"**{f['title']}...**")
-                        st.caption(f"Score: {f['score']} | {f['details']}")
-                        st.markdown("---")
+                # eSIM VoC 필터링 결과
+                if 'domestic' in filter_info and 'voc_esim' in filter_info['domestic']:
+                    voc_esim_passed = [f for f in filter_info['domestic']['voc_esim'] if not f['filtered']]
+                    voc_esim_filtered = [f for f in filter_info['domestic']['voc_esim'] if f['filtered']]
 
-                with col4:
-                    st.markdown(f"#### ❌ Filtered ({len(global_filtered)})")
-                    for f in global_filtered:
-                        st.markdown(f"**{f['title']}...**")
-                        st.caption(f"Reason: {f['reason']} | {f['details']}")
-                        st.markdown("---")
+                    col3, col4 = st.columns(2)
+                    with col3:
+                        st.markdown(f"#### ✅ eSIM VoC Passed ({len(voc_esim_passed)})")
+                        for f in voc_esim_passed:
+                            st.markdown(f"**{f['title']}...**")
+                            st.caption(f"Score: {f['score']} | {f['details']}")
+                            st.markdown("---")
+
+                    with col4:
+                        st.markdown(f"#### ❌ eSIM VoC Filtered ({len(voc_esim_filtered)})")
+                        for f in voc_esim_filtered:
+                            st.markdown(f"**{f['title']}...**")
+                            st.caption(f"Reason: {f['reason']} | {f['details']}")
+                            st.markdown("---")
+
+                st.caption("💡 카테고리 0, 1, 2, 3은 SmartFilter 미적용 (키워드 검색으로 충분)")
 
     # --- Result Dashboard ---
     if st.session_state.report_data:
