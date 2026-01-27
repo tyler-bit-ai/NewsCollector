@@ -20,13 +20,7 @@ OPENAI_MODEL_ADVANCED = "openai/gpt-5-2025-08-07"
 # --- Hybrid Search Strategy & Queries ---
 
 # 1. Domestic Channels (Naver News/Blog/Cafe)
-# Core Keywords: 로밍, eSIM, SKT 바로, 도시락 eSIM, 말톡, 유심사, 이지이심, 핀다이렉트
-# Tech/Quality: 스타링크, 로밍 속도, 로밍 불만, 로밍 품질, 로밍 불편, 5G SA 로밍, eSIM 장점, eSIM 속도, eSIM 편리, eSIM 단점, eSIM 불만, 로밍 가격, eSIM 가격
-NAVER_SEARCH_KEYWORDS = [
-    "로밍", "eSIM", "SKT 바로", "도시락 eSIM", "말톡", "유심사", "이지이심", "핀다이렉트",
-    "로밍 속도", "로밍 불만", "로밍 품질", "로밍 불편", "로밍 가격",
-    "eSIM 장점", "eSIM 속도", "eSIM 편리", "eSIM 단점", "eSIM 불만", "eSIM 가격"
-]
+# Note: Removed NAVER_SEARCH_KEYWORDS - keywords are now category-specific
 
 # 1.1 VOC-Specific Keywords (Community/Blog focus)
 # For 로밍 Voice & eSIM VoC categories
