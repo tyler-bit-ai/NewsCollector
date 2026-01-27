@@ -266,16 +266,17 @@ class NewsCollector:
 
     def collect_from_naver(self, query, categories=['news', 'blog', 'cafearticle']):
         """
+        [DEPRECATED] Use specific methods: collect_from_news, collect_from_blog, collect_from_cafe
         Collects from Naver Open API.
         categories: list of 'news', 'blog', 'cafearticle'
         """
         print(f"[Naver] Searching: {query} in {categories}")
-        
+
         headers = {
             "X-Naver-Client-Id": self.naver_client_id,
             "X-Naver-Client-Secret": self.naver_client_secret
         }
-        
+
         all_items = []
 
         for category in categories:
@@ -285,24 +286,24 @@ class NewsCollector:
                 "display": 50, # Maximize fetch to allow filtering
                 "sort": "date" # Sort by date to get newest
             }
-            
+
             try:
                 response = requests.get(url, headers=headers, params=params)
                 if response.status_code != 200:
                     print(f"[ERROR] Naver API ({category}) failed: {response.status_code}")
                     continue
-                
+
                 data = response.json()
                 items = data.get('items', [])
-                
+
                 for item in items:
                     # Date Handling
                     # News: "pubDate": "Mon, 19 Jan 2026 12:00:00 +0900"
                     # Blog/Cafe: "postdate": "20260119" (YYYYMMDD) - No time!
-                    
+
                     pub_date_obj = None
                     raw_date = item.get('pubDate') or item.get('postdate')
-                    
+
                     if raw_date:
                         try:
                             if category == 'news':
@@ -311,7 +312,7 @@ class NewsCollector:
                                 # Blog/Cafe returns YYYYMMDD
                                 pub_date_obj = datetime.datetime.strptime(raw_date, "%Y%m%d")
                                 # Set time to 00:00 KST roughly? Or just accept if date is today/yesterday.
-                                # Let's make it offset specific if possible, or naive. 
+                                # Let's make it offset specific if possible, or naive.
                                 # Better: just convert to date and compare with today's date for strictness?
                                 # Requirement: Recent 24 hours. "20260119" -> covers 00:00 to 23:59.
                                 # If today is 20th 09:00, 19th is within 24h? Maybe.
@@ -321,14 +322,14 @@ class NewsCollector:
 
                         except Exception:
                             pass # Keep None
-                    
+
                     # Validate Time (Strict 24h)
                     if not self.check_time_validity(pub_date_obj):
                          # For Blog/Cafe which implies "Day" granularity, we might be lenient
                          # If it's today or yesterday, we accept.
-                         # check_time_validity is strict timedelta. 
+                         # check_time_validity is strict timedelta.
                          # If '20260118' (yesterday) and now is '20260119 20:00', delta is > 24h (from 00:00).
-                         # We might lose valid posts. 
+                         # We might lose valid posts.
                          # Refine: If blog/cafe, allow 'yesterday' even if technically > 24h from 00:00
                          if category in ['blog', 'cafearticle'] and raw_date:
                              # Simple string check: today or yesterday
@@ -338,7 +339,7 @@ class NewsCollector:
                                  continue
                          else:
                              continue # Strict time check failed for news
-                    
+
                     # Link Cleaning: Remove Naver redirect/landing pages
                     raw_link = item.get('link', '')
                     clean_link = self.clean_naver_link(raw_link, category)
@@ -352,13 +353,184 @@ class NewsCollector:
                         'published': raw_date,
                         'type': 'domestic' # default type, refined later
                     }
-                    
+
                     if self.validate_article(article):
                         all_items.append(article)
-                        
+
             except Exception as e:
                 print(f"[ERROR] Naver API Exception: {e}")
                 continue
+
+        return self.deduplicate(all_items)
+
+    def collect_from_news(self, query, display=50):
+        """
+        네이버 뉴스 API 전용 검색
+        https://developers.naver.com/docs/serviceapi/search/news/news.md
+        """
+        headers = {
+            "X-Naver-Client-Id": self.naver_client_id,
+            "X-Naver-Client-Secret": self.naver_client_secret
+        }
+
+        url = f"{self.naver_base_url}/news.json"
+        params = {
+            "query": query,
+            "display": display,
+            "sort": "date"
+        }
+
+        all_items = []
+        try:
+            response = requests.get(url, headers=headers, params=params)
+            if response.status_code != 200:
+                print(f"[ERROR] Naver News API failed: {response.status_code}")
+                return []
+
+            data = response.json()
+            items = data.get('items', [])
+
+            for item in items:
+                pub_date_obj = None
+                raw_date = item.get('pubDate')
+
+                if raw_date:
+                    try:
+                        pub_date_obj = parsedate_to_datetime(raw_date)
+                    except Exception:
+                        pass
+
+                if not self.check_time_validity(pub_date_obj):
+                    continue
+
+                clean_link = self.clean_naver_link(item.get('link', ''), 'news')
+
+                article = {
+                    'title': item.get('title'),
+                    'link': clean_link,
+                    'snippet': item.get('description'),
+                    'source': f"Naver News",
+                    'published': raw_date,
+                    'type': 'domestic'
+                }
+
+                if self.validate_article(article):
+                    all_items.append(article)
+
+        except Exception as e:
+            print(f"[ERROR] Naver News API Exception: {e}")
+
+        return self.deduplicate(all_items)
+
+    def collect_from_blog(self, query, display=50):
+        """
+        네이버 블로그 API 전용 검색
+        https://developers.naver.com/docs/serviceapi/search/blog/blog.md
+        """
+        headers = {
+            "X-Naver-Client-Id": self.naver_client_id,
+            "X-Naver-Client-Secret": self.naver_client_secret
+        }
+
+        url = f"{self.naver_base_url}/blog.json"
+        params = {
+            "query": query,
+            "display": display,
+            "sort": "date"
+        }
+
+        all_items = []
+        try:
+            response = requests.get(url, headers=headers, params=params)
+            if response.status_code != 200:
+                print(f"[ERROR] Naver Blog API failed: {response.status_code}")
+                return []
+
+            data = response.json()
+            items = data.get('items', [])
+
+            for item in items:
+                raw_date = item.get('postdate')
+
+                # Blog: YYYYMMDD format - lenient time check
+                if raw_date:
+                    today_str = datetime.datetime.now().strftime("%Y%m%d")
+                    yesterday_str = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime("%Y%m%d")
+                    if raw_date != today_str and raw_date != yesterday_str:
+                        continue
+
+                clean_link = self.clean_naver_link(item.get('link', ''), 'blog')
+
+                article = {
+                    'title': item.get('title'),
+                    'link': clean_link,
+                    'snippet': item.get('description'),
+                    'source': f"Naver Blog",
+                    'published': raw_date,
+                    'type': 'domestic'
+                }
+
+                if self.validate_article(article):
+                    all_items.append(article)
+
+        except Exception as e:
+            print(f"[ERROR] Naver Blog API Exception: {e}")
+
+        return self.deduplicate(all_items)
+
+    def collect_from_cafe(self, query, display=50):
+        """
+        네이버 카페글 API 전용 검색
+        https://developers.naver.com/docs/serviceapi/search/cafearticle/cafearticle.md
+        """
+        headers = {
+            "X-Naver-Client-Id": self.naver_client_id,
+            "X-Naver-Client-Secret": self.naver_client_secret
+        }
+
+        url = f"{self.naver_base_url}/cafearticle.json"
+        params = {
+            "query": query,
+            "display": display,
+            "sort": "date"
+        }
+
+        all_items = []
+        try:
+            response = requests.get(url, headers=headers, params=params)
+            if response.status_code != 200:
+                print(f"[ERROR] Naver Cafe API failed: {response.status_code}")
+                return []
+
+            data = response.json()
+            items = data.get('items', [])
+
+            for item in items:
+                raw_date = item.get('postdate')
+
+                # Cafe: YYYYMMDD format - lenient time check
+                if raw_date:
+                    today_str = datetime.datetime.now().strftime("%Y%m%d")
+                    yesterday_str = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime("%Y%m%d")
+                    if raw_date != today_str and raw_date != yesterday_str:
+                        continue
+
+                clean_link = self.clean_naver_link(item.get('link', ''), 'cafe')
+
+                article = {
+                    'title': item.get('title'),
+                    'link': clean_link,
+                    'snippet': item.get('description'),
+                    'source': f"Naver Cafe",
+                    'published': raw_date,
+                    'type': 'domestic'
+                }
+
+                if self.validate_article(article):
+                    all_items.append(article)
+
+        except Exception as e:
+            print(f"[ERROR] Naver Cafe API Exception: {e}")
 
         return self.deduplicate(all_items)
 
@@ -410,25 +582,34 @@ class NewsCollector:
     def collect_hybrid(self):
         """
         Master method to collect from all sources.
+        Uses dedicated API methods for each Naver service.
         """
         print("=== Starting Hybrid Data Collection ===")
 
-        # 1. Domestic & Market (Naver priority)
-        # Category-specific keywords only (no generic NAVER_SEARCH_KEYWORDS)
         domestic_articles = []
 
-        # A. Market/Culture Keywords -> News, Blog
-        domestic_articles.extend(self.collect_from_naver(MARKET_KEYWORDS_QUERY, categories=['news', 'blog']))
+        # 1. Market/Culture Keywords → News, Blog
+        # 시장/문화: 뉴스와 블로그에서 검색
+        print("\n[1] Market & Culture (News + Blog)")
+        domestic_articles.extend(self.collect_from_news(MARKET_KEYWORDS_QUERY, display=50))
+        domestic_articles.extend(self.collect_from_blog(MARKET_KEYWORDS_QUERY, display=50))
 
-        # B. VOC Keywords -> Blog, Cafe (Community focus for customer reviews)
+        # 2. VOC Keywords → Blog, Cafe
+        # VOC 후기/리뷰: 블로그와 카페에서 검색
+        print("\n[2] VOC (Blog + Cafe)")
         for keyword in NAVER_VOC_KEYWORDS:
-            domestic_articles.extend(self.collect_from_naver(keyword, categories=['blog', 'cafearticle']))
+            domestic_articles.extend(self.collect_from_blog(keyword, display=30))
+            domestic_articles.extend(self.collect_from_cafe(keyword, display=30))
 
-        # C. Competitor Keywords -> News
+        # 3. Competitor Keywords → News
+        # 경쟁사: 뉴스에서 검색
+        print("\n[3] Competitors (News)")
         for keyword in NAVER_COMPETITOR_KEYWORDS:
-            domestic_articles.extend(self.collect_from_naver(keyword, categories=['news']))
+            domestic_articles.extend(self.collect_from_news(keyword, display=30))
 
-        # 2. Global (Google)
+        # 4. Global (Google)
+        # 글로벌 트렌드: 구글 검색
+        print("\n[4] Global Roaming Trend (Google)")
         global_articles = self.collect_from_google(GOOGLE_GLOBAL_QUERIES, num=10)
 
         return {
