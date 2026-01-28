@@ -37,11 +37,13 @@ NAVER_ROAMING_VOC_KEYWORDS = [
 # 1.3 eSIM VOC Keywords - For eSIM VoC category (Naver Blog, Cafe)
 # eSIM 관련 고객 후기/리뷰
 NAVER_ESIM_VOC_KEYWORDS = [
-    "도시락 후기", "도시락 리뷰", "도시락 추천",
+    "도시락 eSIM후기", "도시락eSIM 리뷰", "도시락eSIM 추천",
     "말톡 후기", "말톡 리뷰", "말톡 추천",
     "유심사 후기", "유심사 리뷰",
     "이지이심 후기", "이지이심 리뷰",
-    "eSIM 후기", "eSIM 리뷰", "eSIM 추천", "eSIM 재구매"
+    "eSIM 후기", "eSIM 리뷰", "eSIM 추천", "eSIM 재구매",
+    "로밍도깨비 후기", "로밍도깨비 추천",
+    "핀다이렉트 eSIM후기", "핀다이렉트 eSIM 추천"
 ]
 
 # 1.4 Competitor-Specific Keywords
@@ -54,9 +56,13 @@ NAVER_COMPETITOR_KEYWORDS = [
 ]
 
 # 2. Travel/Culture (Naver & Google Hybrid)
-# Keywords: ("일본 여행" OR "중국 여행" OR "베트남 여행" OR "필리핀 여행" OR "한국 여행" OR "케이팝" OR "K-POP" OR "한류" OR "출국자수" OR "입국자수" OR "출입국자수" OR "출국자 동향" OR "입국자 동향" OR "해외 여행객수")
-# Note: No (로밍 OR eSIM) filter - this category is independent of roaming/eSIM
-MARKET_KEYWORDS_QUERY = '("일본 여행" OR "중국 여행" OR "베트남 여행" OR "필리핀 여행" OR "한국 여행" OR "케이팝" OR "K-POP" OR "한류" OR "출국자수" OR "입국자수" OR "출입국자수" OR "출국자 동향" OR "입국자 동향" OR "해외 여행객수")'
+# Market & Culture Keywords - For Market & Culture category (Naver News, Blog)
+# 여행/문화 관련 키워드
+NAVER_MARKET_CULTURE_KEYWORDS = [
+    "일본 여행", "중국 여행", "베트남 여행", "필리핀 여행", "한국 여행",
+    "케이팝", "K-POP", "한류",
+    "출국자수", "입국자수", "출입국자수", "출국자 동향", "입국자 동향", "해외 여행객수"
+]
 
 # 3. Global Channels (Google Only)
 # Comprehensive keywords: roaming business, global eSIM industry, travel connectivity market

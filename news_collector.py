@@ -8,73 +8,9 @@ from config import (
     BLACKLIST_DOMAINS, EXCLUDED_KEYWORDS,
     NAVER_ESIM_PRODUCTS_KEYWORDS, NAVER_ROAMING_VOC_KEYWORDS, NAVER_ESIM_VOC_KEYWORDS,
     NAVER_COMPETITOR_KEYWORDS,
-    MARKET_KEYWORDS_QUERY,
+    NAVER_MARKET_CULTURE_KEYWORDS,
     GOOGLE_GLOBAL_QUERIES, COMMUNITY_SITES
 )
-from smart_filter import SmartFilter
-
-
-class CategoryClassifier:
-    """키워드 기반 간단 카테고리 분류기"""
-
-    # 카테고리별 키워드 정의
-    CATEGORY_KEYWORDS = {
-        'market_culture': [
-            '입국자', '출국자', '출입국자', '입국자수', '출국자수',
-            'K-POP', '케이팝', '한류', '한국 여행', '일본 여행', '중국 여행',
-            '베트남 여행', '필리핀 여행', '해외 여행객', '여행객수', '관광객'
-        ],
-        'global_trend': [
-            # global 타입 기사는 나중에 처리
-        ],
-        'competitors': [
-            'KT 로밍', 'KT 데이터', 'KT 로밍 요금제', 'kt 로밍', 'kt 데이터',
-            'LGU+ 로밍', 'LG유플러스 로밍', 'lgu+ 로밍', 'lg유플러스',
-            'KT 통신', 'LGU+ 통신'
-        ],
-        'esim_products': [
-            '도시락 esim', '도시락이심', '도시락 프로모션', '도시락 할인',
-            '말톡 esim', '말톡이심', '말톡 프로모션', '말톡 할인',
-            '유심사', '이지이심', '핀다이렉트', 'eSIM 프로모션', 'esim 프로모션'
-        ],
-        'voc_roaming': [
-            '로밍 후기', '로밍 리뷰', '로밍 추천', '로밍 재구매',
-            '로밍 사용기', '로밍 사용법', '로밍 추천'
-        ],
-        'voc_esim': [
-            'eSIM 후기', 'esim 후기', 'eSIM 리뷰', 'esim 리뷰',
-            'eSIM 추천', 'esim 추천', 'eSIM 재구매', 'esim 재구매',
-            '도시락 후기', '말톡 후기', '유심사 후기', '이지이심 후기'
-        ]
-    }
-
-    @classmethod
-    def classify_article(cls, article: dict) -> str:
-        """
-        기사를 키워드 기반으로 카테고리 분류
-
-        Returns:
-            카테고리 키 (market_culture, global_trend, competitors, esim_products, voc_roaming, voc_esim, other)
-        """
-        title = article.get('title', '').lower()
-        snippet = article.get('snippet', '').lower()
-        combined = f"{title} {snippet}"
-
-        # Global 기사는 type으로 확인
-        if article.get('type') == 'global':
-            return 'global_trend'
-
-        # 각 카테고리 키워드 확인 (우선순위대로)
-        # eSIM 제품/프로모션이 먼저 분류되도록 esim_products를 voc_esim보다 우선
-        priority_order = ['competitors', 'voc_roaming', 'esim_products', 'voc_esim', 'market_culture']
-
-        for category in priority_order:
-            keywords = cls.CATEGORY_KEYWORDS[category]
-            for keyword in keywords:
-                if keyword.lower() in combined:
-                    return category
-
-        return 'other'  # 분류되지 않은 기사
 
 
 class NewsCollector:
@@ -92,9 +28,6 @@ class NewsCollector:
 
         # Debug Mode
         self.debug_mode = debug_mode
-
-        # Smart Filter
-        self.smart_filter = SmartFilter(debug_mode=debug_mode)
 
     def clean_naver_link(self, link: str, category: str) -> str:
         """
@@ -196,6 +129,13 @@ class NewsCollector:
         title = article.get('title', '').lower()
         snippet = article.get('snippet', '').lower()
 
+        # 0. Block Cafe/Blog URLs from News API
+        # News API should only return news articles, not Cafe/Blog posts
+        if 'cafe.naver.com' in link or 'blog.naver.com' in link:
+            if self.debug_mode:
+                print(f"[FILTERED] Cafe/Blog URL in News API: {title[:50]}...")
+            return None
+
         # 1. URL Pattern Check
         if any(blocked in link for blocked in BLACKLIST_DOMAINS):
             if self.debug_mode:
@@ -228,7 +168,7 @@ class NewsCollector:
         for article in articles:
             # Simple normalization: remove spaces, lowercase
             clean_title = article['title'].replace(' ', '').replace('<b>', '').replace('</b>', '').replace('&quot;', '').lower()
-            
+
             if clean_title in seen_titles:
                 continue
             if article['link'] in seen_links:
@@ -241,7 +181,26 @@ class NewsCollector:
             unique_articles.append(article)
             seen_titles.add(clean_title)
             seen_links.add(article['link'])
-            
+
+        return unique_articles
+
+    def deduplicate_cross_categories(self, articles):
+        """
+        Removes duplicates across categories based on link.
+        If the same link appears in multiple categories, keep only the first occurrence.
+        """
+        seen_links = {}
+        unique_articles = []
+
+        for article in articles:
+            link = article['link']
+
+            if link not in seen_links:
+                # First time seeing this link
+                seen_links[link] = True
+                unique_articles.append(article)
+            # Duplicate found - skip (keep first occurrence only)
+
         return unique_articles
 
     def check_time_validity(self, pub_date_obj):
@@ -379,7 +338,7 @@ class NewsCollector:
         params = {
             "query": query,
             "display": display,
-            "sort": "date"
+            "sort": "date"  # 날짜순 정렬
         }
 
         all_items = []
@@ -405,7 +364,12 @@ class NewsCollector:
                 if not self.check_time_validity(pub_date_obj):
                     continue
 
-                clean_link = self.clean_naver_link(item.get('link', ''), 'news')
+                # Check original link BEFORE cleaning (to catch Cafe/Blog URLs from News API)
+                original_link = item.get('link', '')
+                if 'cafe.naver.com' in original_link or 'blog.naver.com' in original_link:
+                    continue
+
+                clean_link = self.clean_naver_link(original_link, 'news')
 
                 article = {
                     'title': item.get('title'),
@@ -438,7 +402,7 @@ class NewsCollector:
         params = {
             "query": query,
             "display": display,
-            "sort": "date"
+            "sort": "date"  # 날짜순 정렬
         }
 
         all_items = []
@@ -454,12 +418,19 @@ class NewsCollector:
             for item in items:
                 raw_date = item.get('postdate')
 
-                # Blog: YYYYMMDD format - lenient time check
+                # Blog: YYYYMMDD format - 24시간 체크
+                pub_date_obj = None
                 if raw_date:
-                    today_str = datetime.datetime.now().strftime("%Y%m%d")
-                    yesterday_str = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime("%Y%m%d")
-                    if raw_date != today_str and raw_date != yesterday_str:
-                        continue
+                    try:
+                        # YYYYMMDD 형식을 datetime으로 변환
+                        pub_date_obj = datetime.datetime.strptime(raw_date, "%Y%m%d")
+                        # 로컬 시간으로 처리 (KST 가정)
+                        pub_date_obj = pub_date_obj.replace(tzinfo=datetime.timezone.utc)
+                    except Exception:
+                        pass
+
+                if not self.check_time_validity(pub_date_obj):
+                    continue
 
                 clean_link = self.clean_naver_link(item.get('link', ''), 'blog')
 
@@ -494,7 +465,7 @@ class NewsCollector:
         params = {
             "query": query,
             "display": display,
-            "sort": "date"
+            "sort": "date"  # 날짜순 정렬
         }
 
         all_items = []
@@ -510,12 +481,19 @@ class NewsCollector:
             for item in items:
                 raw_date = item.get('postdate')
 
-                # Cafe: YYYYMMDD format - lenient time check
+                # Cafe: YYYYMMDD format - 24시간 체크
+                pub_date_obj = None
                 if raw_date:
-                    today_str = datetime.datetime.now().strftime("%Y%m%d")
-                    yesterday_str = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime("%Y%m%d")
-                    if raw_date != today_str and raw_date != yesterday_str:
-                        continue
+                    try:
+                        # YYYYMMDD 형식을 datetime으로 변환
+                        pub_date_obj = datetime.datetime.strptime(raw_date, "%Y%m%d")
+                        # 로컬 시간으로 처리 (KST 가정)
+                        pub_date_obj = pub_date_obj.replace(tzinfo=datetime.timezone.utc)
+                    except Exception:
+                        pass
+
+                if not self.check_time_validity(pub_date_obj):
+                    continue
 
                 clean_link = self.clean_naver_link(item.get('link', ''), 'cafe')
 
@@ -585,49 +563,76 @@ class NewsCollector:
         """
         Master method to collect from all sources.
         Uses dedicated API methods for each Naver service.
+        - Collects 20 articles per category (sorted by relevance)
+        - Adds category tag at collection time
+        - Applies deduplicate and cross-category deduplication
         """
         print("=== Starting Hybrid Data Collection ===")
 
         domestic_articles = []
 
+        # Helper function to add category tag
+        def add_category(articles, category):
+            for article in articles:
+                article['category'] = category
+            return articles
+
         # 1. Market/Culture (Macro) → News, Blog
         # 로밍/eSIM 관계 없는 시장/문화 카테고리
         print("\n[0] Market & Culture (News + Blog)")
-        domestic_articles.extend(self.collect_from_news(MARKET_KEYWORDS_QUERY, display=50))
-        domestic_articles.extend(self.collect_from_blog(MARKET_KEYWORDS_QUERY, display=50))
+        for keyword in NAVER_MARKET_CULTURE_KEYWORDS:
+            market_news = self.collect_from_news(keyword, display=5)
+            market_blog = self.collect_from_blog(keyword, display=5)
+            domestic_articles.extend(add_category(market_news, 'market_culture'))
+            domestic_articles.extend(add_category(market_blog, 'market_culture'))
 
         # 2. SKT & Competitors (KT/LGU+) → News
         # 경쟁사: 뉴스에서 검색
         print("\n[2] SKT & Competitors (News)")
         for keyword in NAVER_COMPETITOR_KEYWORDS:
-            domestic_articles.extend(self.collect_from_news(keyword, display=30))
+            competitor_news = self.collect_from_news(keyword, display=5)
+            domestic_articles.extend(add_category(competitor_news, 'competitors'))
 
         # 3. eSIM → News
         # eSIM 사업자/프로모션: 뉴스에서 검색
         print("\n[3] eSIM Products (News)")
         for keyword in NAVER_ESIM_PRODUCTS_KEYWORDS:
-            domestic_articles.extend(self.collect_from_news(keyword, display=30))
+            esim_news = self.collect_from_news(keyword, display=5)
+            domestic_articles.extend(add_category(esim_news, 'esim_products'))
 
         # 4. 로밍 VoC → Blog, Cafe
         # 로밍 관련 고객 후기/리뷰: 블로그, 카페에서 검색
         print("\n[4] 로밍 VoC (Blog + Cafe)")
         for keyword in NAVER_ROAMING_VOC_KEYWORDS:
-            domestic_articles.extend(self.collect_from_blog(keyword, display=30))
-            domestic_articles.extend(self.collect_from_cafe(keyword, display=30))
+            roaming_voc_blog = self.collect_from_blog(keyword, display=5)
+            roaming_voc_cafe = self.collect_from_cafe(keyword, display=5)
+            domestic_articles.extend(add_category(roaming_voc_blog, 'voc_roaming'))
+            domestic_articles.extend(add_category(roaming_voc_cafe, 'voc_roaming'))
 
         # 5. eSIM VoC → Blog, Cafe
         # eSIM 관련 고객 후기/리뷰: 블로그, 카페에서 검색
         print("\n[5] eSIM VoC (Blog + Cafe)")
         for keyword in NAVER_ESIM_VOC_KEYWORDS:
-            domestic_articles.extend(self.collect_from_blog(keyword, display=30))
-            domestic_articles.extend(self.collect_from_cafe(keyword, display=30))
+            esim_voc_blog = self.collect_from_blog(keyword, display=5)
+            esim_voc_cafe = self.collect_from_cafe(keyword, display=5)
+            domestic_articles.extend(add_category(esim_voc_blog, 'voc_esim'))
+            domestic_articles.extend(add_category(esim_voc_cafe, 'voc_esim'))
 
         # 6. Global Roaming Trend → Google
         # 글로벌 트렌드: 구글 검색
         print("\n[1] Global Roaming Trend (Google)")
-        global_articles = self.collect_from_google(GOOGLE_GLOBAL_QUERIES, num=10)
+        global_articles = self.collect_from_google(GOOGLE_GLOBAL_QUERIES, num=5)
+        # Global articles already have 'type': 'global'
+
+        # 중복 제거
+        print("\n[Deduplicating articles...")
+        domestic_articles = self.deduplicate(domestic_articles)
+
+        # 카테고리 간 중복 제거
+        print("[Deduplicating across categories...")
+        domestic_articles = self.deduplicate_cross_categories(domestic_articles)
 
         return {
-            'domestic': self.deduplicate(domestic_articles),
+            'domestic': domestic_articles,
             'global': global_articles
         }

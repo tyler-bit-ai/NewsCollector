@@ -1,7 +1,5 @@
 from openai import OpenAI
 from config import OPENAI_API_KEY, OPENAI_MODEL_BASIC, OPENAI_MODEL_ADVANCED, OPENAI_BASE_URL
-from smart_filter import SmartFilter
-from news_collector import CategoryClassifier
 import time
 import random
 import json
@@ -38,7 +36,7 @@ class NewsAnalyzer:
     def analyze_and_summarize(self, raw_data):
         """
         Two-step Analysis:
-        1. Basic Model: Classify and Summarize raw text.
+        1. Basic Model: Summarize pre-categorized articles (categories assigned at collection time).
         2. Advanced Model: Generate Insights and Executive Summary.
         """
         domestic_items = raw_data.get('domestic', [])
@@ -47,8 +45,8 @@ class NewsAnalyzer:
         if not domestic_items and not global_items:
             return {"error": "수집된 데이터가 없습니다."}
 
-        # --- 카테고리별 분류 (키워드 기반) - SmartFilter 적용 전에 분류 ---
-        print("   [Analyzer] Classifying articles by category first...")
+        # --- Use categories assigned at collection time ---
+        print("   [Analyzer] Using pre-assigned categories from collection...")
         classified = {
             'market_culture': [],
             'global_trend': [],
@@ -59,9 +57,9 @@ class NewsAnalyzer:
             'other': []
         }
 
-        # Domestic 기사 분류
+        # Domestic 기사: collection 단계에서 assigned된 category 사용
         for article in domestic_items:
-            category = CategoryClassifier.classify_article(article)
+            category = article.get('category', 'other')
             classified[category].append(article)
 
         # Global 기사는 모두 global_trend로
@@ -73,31 +71,8 @@ class NewsAnalyzer:
             if items:
                 print(f"   {cat}: {len(items)} articles")
 
-        # --- Smart Filter 적용 (VOC 카테고리에만 적용) ---
-        print("   [Analyzer] Applying Smart Filter for VOC categories only...")
-        smart_filter = SmartFilter(debug_mode=False)
-
-        # VOC 카테고리(4, 5번)에만 SmartFilter 적용
-        # 0, 1, 2, 3번 카테고리는 키워드 검색으로 충분하므로 필터링하지 않음
-        voc_roaming_filtered, voc_roaming_filter_info = smart_filter.filter_articles_for_ai(
-            classified['voc_roaming'], threshold=30
-        )
-        voc_esim_filtered, voc_esim_filter_info = smart_filter.filter_articles_for_ai(
-            classified['voc_esim'], threshold=30
-        )
-
-        print(f"   [Smart Filter] 로밍 VoC: {len(classified['voc_roaming'])} → {len(voc_roaming_filtered)}")
-        print(f"   [Smart Filter] eSIM VoC: {len(classified['voc_esim'])} → {len(voc_esim_filtered)}")
-
-        # 필터링된 VOC 카테고리 업데이트
-        classified['voc_roaming'] = voc_roaming_filtered
-        classified['voc_esim'] = voc_esim_filtered
-
-        # 필터링 정보 저장 (디버그용)
-        domestic_filter_info = {
-            'voc_roaming': voc_roaming_filter_info,
-            'voc_esim': voc_esim_filter_info
-        }
+        # 필터링 정보 (빈 값으로 설정)
+        domestic_filter_info = {}
         global_filter_info = []
 
         # --- 각 카테고리별 최신 10개씩 선택 ---
@@ -130,10 +105,35 @@ class NewsAnalyzer:
         domestic_text = format_items(all_domestic)
         global_text = format_items(global_limited)
 
+        # 각 카테고리별 입력된 기사 수 계산
+        category_counts = {}
+        for cat in ['market_culture', 'global_trend', 'competitors', 'esim_products', 'voc_roaming', 'voc_esim']:
+            if cat == 'global_trend':
+                category_counts[cat] = len(global_limited)
+            else:
+                category_counts[cat] = len(domestic_by_category.get(cat, []))
+
+        # 동적 출력 한계 생성
+        def get_output_limit(cat_name, count):
+            if count <= 5:
+                return f"- {cat_name}: {count}개 (모두 요약)"
+            else:
+                return f"- {cat_name}: 정확히 5개 (반드시 5개 선택)"
+
+        output_limits = "\n".join([
+            get_output_limit("Market & Culture (Macro)", category_counts['market_culture']),
+            get_output_limit("Global Roaming Trend", category_counts['global_trend']),
+            get_output_limit("SKT & Competitors (KT/LGU+)", category_counts['competitors']),
+            get_output_limit("eSIM", category_counts['esim_products']),
+            get_output_limit("로밍 VoC", category_counts['voc_roaming']),
+            get_output_limit("eSIM VoC", category_counts['voc_esim'])
+        ])
+
         prompt_basic = f"""
         당신은 SKT 로밍팀 데이터 분석가입니다.
-        제공된 기사 목록을 분석하여 지정된 섹션으로 분류하고 요약하세요.
-        전략적 인사이트는 아직 도출하지 마세요. 오직 팩트 기반의 요약과 분류만 수행합니다.
+        제공된 기사 목록을 요약하세요.
+
+        **중요**: 기사들은 수집 단계에서 이미 카테고리별로 정확히 분류되었습니다. 절대 재분류하지 말고, 각 카테고리에 해당하는 기사들을 그대로 요약하세요.
 
         [Data Sources]
         === DOMESTIC DATA (최신 {len(all_domestic)}개) ===
@@ -142,29 +142,21 @@ class NewsAnalyzer:
         === GLOBAL DATA (최신 {len(global_limited)}개) ===
         {global_text}
 
-        [Classification Rules - 6 Categories]
+        [Category Description]
         0. **Market & Culture (Macro)**: 한국 방문객(입국자), K-Culture, K-POP, 한류, 출국자 수 통계/추이, 여행 시장 동향.
 
         1. **Global Roaming Trend**: 해외 기사 중 eSIM 및 로밍 산업에 관한 영어 기사. 글로벌 로밍/eSIM/통신 기술 트렌드(Starlink, 6G 등).
 
-        2. **SKT & Competitors (KT/LGU+)**: SKT 바로로밍, KT 로밍, LGU+ 로밍 관련 기사. **(중요: SK텔레콤(SKT) 단독 뉴스는 절대 포함하지 마세요. KT/LGU+ 내용이 주가 되는 기사만 분류)**.
+        2. **SKT & Competitors (KT/LGU+)**: SKT 바로로밍, KT 로밍, LGU+ 로밍 관련 기사. **(중요: SK텔레콤(SKT) 단독 뉴스는 절대 포함하지 마세요. KT/LGU+ 내용이 주가 되는 기사만 요약하세요.)**
 
-        3. **eSIM**: eSIM 대표 업체(도시락, 말톡, 유심사, 이지에심, 핀다이렉트 등) 관련 기사와 eSIM 사업자들의 프로모션/광고 관련 기사.
+        3. **eSIM**: eSIM 대표 업체(도시락, 말톡, 유심사, 이지이심, 핀다이렉트 등) 관련 기사와 eSIM 사업자들의 프로모션/광고 관련 기사. **(중요: 블로그/카페 후기/리뷰는 절대 포함하지 마세요. 오직 언론사 뉴스만 요약하세요.)**
 
-        4. **로밍 VoC**: 로밍 사업에 대한 긍정/부정 후기 (커뮤니티, 블로그 소스). "ㅠㅠ", "ㅋㅋ", "후기", "리뷰", "재구매", "추천" 등 개인 사용 경험글.
+        4. **로밍 VoC**: 로밍 사업에 대한 긍정/부정 후기 (커뮤니티, 블로그 소스). "ㅠㅠ", "ㅋㅋ", "후기", "리뷰", "재구매", "추천" 등 개인 사용 경험글. **(중요: eSIM/이심 관련 내용은 제외하고 순수 로밍 서비스 후기만 요약하세요.)**
 
-        5. **eSIM VoC**: eSIM 사업에 대한 긍정/부정 후기 (커뮤니티, 블로그 소스). eSIM/도시락/말톡 등의 고객 후기, "후기", "리뷰", "ㅠㅠ", "ㅋㅋ", "재구매", "추천" 등 개인 경험 표현.
+        5. **eSIM VoC**: eSIM 사업에 대한 긍정/부정 후기 (커뮤니티, 블로그 소스). eSIM/도시락/말톡 등의 고객 후기, "후기", "리뷰", "ㅠㅠ", "ㅋㅋ", "재구매", "추천" 등 개인 경험 표현. **(중요: 모든 블로그/카페 후기/리뷰는 이 카테고리만을 위해 요약하세요.)**
 
         [Output Limits]
-- Market & Culture (Macro): 최대 5개
-- Global Roaming Trend: 최대 5개
-- SKT & Competitors (KT/LGU+): 최대 5개
-- eSIM: 최대 5개 (프로모션/기사/출시 소식만)
-- 로밍 VoC: 최대 5개 (고객 후기/리뷰)
-- eSIM VoC: 최대 5개 (고객 후기/리뷰)
-
-        [Noise Filtering]
-        - 게임, 금융, 광고, 이벤트 관련 내용은 제외.
+{output_limits}
 
         [Output JSON Structure]
         {{
@@ -176,7 +168,9 @@ class NewsAnalyzer:
             "section_voc_esim": [ {{ "title": "...", "summary": "• ...", "link": "...", "source": "..." }} ]
         }}
 
-        **중요**: "link" 필드는 반드시 위 기사 목록에 제공된 실제 링크(URL)를 그대로 복사해서 사용하세요. 절대 가짜 링크(example.com 등)를 생성하지 마세요.
+        **중요**:
+        1. "link" 필드는 반드시 위 기사 목록에 제공된 실제 링크(URL)를 그대로 복사해서 사용하세요. 절대 가짜 링크(example.com 등)를 생성하지 마세요.
+        2. 반드시 **모든 6개 카테고리**를 JSON으로 출력하세요. 빈 배열이라도 출력해야 합니다.
         """
 
         try:
